@@ -424,14 +424,15 @@ class ASTModel(nn.Module):
     
     # Masked patch joint pretraining with generative and discriminative objective
     def mpj(self, x, mask_patch, cluster, mpg_weight=10):
-        """Masked patch joint pretraining with generative and discriminative objective"""
+        """Masked patch joint pretraining with generative and discriminative objective. Loss = mpc_loss + mpg_weight * mpg_loss
+        """
         # General Model Body
         x, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
         # Both MPC and MPG Head Logic
         mse = self._mpg_head(x, input_patches, mask_index, mask_patch)
         acc, nce = self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask=False)
-        loss = nce + (mpg_weight * mse)
-        return loss
+        combined_loss = nce + (mpg_weight * mse)
+        return combined_loss
     
     
     def forward(self, x, task, cluster=True, mask_patch=400):
