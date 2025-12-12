@@ -409,7 +409,9 @@ class ASTModel(nn.Module):
         # General Model Body
         x, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
         # MPC Head Logic
-        return self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask)
+        # If show_mask is True, return the visualization of masked area instead of loss/accuracy
+        nce, acc = self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask)
+        return nce, acc
         
 
     # Masked patch pretraining with generative objective
@@ -432,7 +434,7 @@ class ASTModel(nn.Module):
         mse = self._mpg_head(x, input_patches, mask_index, mask_patch)
         acc, nce = self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask=False)
         combined_loss = nce + (mpg_weight * mse)
-        return combined_loss
+        return combined_loss, acc
     
     
     def forward(self, x, task, cluster=True, mask_patch=400):

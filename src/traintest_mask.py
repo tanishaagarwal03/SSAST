@@ -215,6 +215,11 @@ def validatemask(audio_model, val_loader, args, epoch):
                 # this is dirty code to track mse loss, A_acc and A_nce now track mse, not the name suggests
                 A_acc.append(torch.mean(mse).cpu())
                 A_nce.append(torch.mean(mse).cpu())
+            elif args.task == 'pretrain_mpj':
+                combined_loss, acc = audio_model(audio_input, args.task, mask_patch=400, cluster=cluster, mpg_weight=10)
+                # this is dirty code to track combined loss, A_nce now track combined_loss, not as the name suggests
+                A_acc.append(torch.mean(acc).cpu())
+                A_nce.append(torch.mean(combined_loss).cpu())
             elif args.task == 'pretrain_joint':
                 acc, _ = audio_model(audio_input, 'pretrain_mpc', mask_patch=400, cluster=cluster)
                 mse = audio_model(audio_input, 'pretrain_mpg', mask_patch=400, cluster=cluster)
