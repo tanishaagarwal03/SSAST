@@ -288,43 +288,42 @@ class ASTModel(nn.Module):
         x = self.mlp_head(x)
         return x
 
-    # masked patch pretraining with discriminative objective
-    def mpc(self, x, mask_patch, cluster, show_mask=False):
-        input = self.unfold(x).transpose(1, 2)
+    # General model body: handles patch embedding, masking, and transformer encoding
+    def _masked_encoding_body(self, x, mask_patch, cluster):
+        # Unfold input to get raw patches (ground truth targets)
+        # x shape: (batch_size, sequence_len, embedding dim)
+        input_patches = self.unfold(x).transpose(1, 2)
         B = x.shape[0]
-        # x in shape (batch_size, sequence_len, embedding dim)
+
+        # Patch embedding
         x = self.v.patch_embed(x)
 
-        # encode the patch
-        # size 12(batch_size) * 100(#mask_patch) * 768(hidden_dim), prepare to save the true values of masked samples
-        encode_samples = torch.empty((B, mask_patch, 256), device=x.device, requires_grad=False).float()
-        # size 12(batch_size) * 100(#mask_patch), index of masked patches
+        # Initialize mask index and dense mask
+        # mask_index shape: B * mask_patch
         mask_index = torch.empty((B, mask_patch), device=x.device, requires_grad=False).long()
-        # size 12(batch_size) * 512(sequence_len) * 768(hidden_dim)
+        # mask_dense shape: B * sequence_len * hidden_dim
         mask_dense = torch.ones([x.shape[0], x.shape[1], x.shape[2]], device=x.device)
 
-        # for each audio clip in the batch
+        # Generate masks for each audio clip in the batch
         for i in range(B):
-            # randomly generate #mask_patch mask indexes without duplicate
+            # Randomly generate #mask_patch mask indexes without duplicate
             if cluster == True:
-                # use this if you are masking e.g. 16*16 patches
+                # Use this if you are masking e.g. 16*16 patches
                 mask_index[i] = self.gen_maskid_patch(self.num_patches, mask_patch)
             else:
-                # use this if you are masking frame, i.e., 128*2 patches
+                # Use this if you are masking frame, i.e., 128*2 patches
                 mask_index[i] = self.gen_maskid_frame(self.num_patches, mask_patch)
-            # copy the masked embeddings, note gradients are stopped in this path
-            encode_samples[i] = input[i, mask_index[i], :].clone().detach()
-            # mask the encode samples with 0
+            
+            # Mask the dense tensor (set masked areas to 0)
             mask_dense[i, mask_index[i], :] = 0
 
-        # follow BEIT paper, mask with learnable masking embedding, but no performance diff observed compared with masking with 0s.
+        # Apply mask tokens
+        # Follow BEIT paper, mask with learnable masking embedding
         mask_tokens = self.mask_embed.expand(B, x.shape[1], -1)
+        x = x * mask_dense + (1 - mask_dense) * mask_tokens
 
-        # mask the patch
-        x = x * mask_dense + (1-mask_dense) * mask_tokens
-
-        # pass through the Transformer layers
-        cls_tokens = self.v.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        # Pass through the Transformer layers
+        cls_tokens = self.v.cls_token.expand(B, -1, -1)
         dist_token = self.v.dist_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, dist_token, x), dim=1)
         x = x + self.v.pos_embed
@@ -333,27 +332,38 @@ class ASTModel(nn.Module):
             x = blk(x)
         x = self.v.norm(x)
 
-        # prediction of the masked patch
-        pred = torch.empty((B, mask_patch, 256), device=x.device).float()  # e.g. size 12*100*768
+        # Return encoded features, raw input patches (targets), and mask indices
+        return x, input_patches, mask_index
+    
+    def _mpc_head(self, x, input_patches, mask_index, mask_patch, show_mask=False):
+        B = x.shape[0]
+
+        # Prepare the true values of masked samples (ground truth)
+        encode_samples = torch.empty((B, mask_patch, 256), device=x.device, requires_grad=False).float()
         for i in range(B):
-            #  +2 for indexes because skipping the cls and dis token
-            # we map the output of transformer (768-dim for base models) to 256-dim patch input space, and then dot product with flattened patch input (also 256-dim) to calculate loss.
-            # alternatively, you can map the output of transformer to 768-dim patch embedding space, and dot product with patch embedding. Performance-wise they are similar, but map to 256 space is more efficient.
+            encode_samples[i] = input_patches[i, mask_index[i], :].clone().detach()
+
+        # Prediction of the masked patch
+        pred = torch.empty((B, mask_patch, 256), device=x.device).float()
+        for i in range(B):
+            # Map output of transformer to patch input space
+            # + self.cls_token_num to skip cls and dist tokens
             pred[i] = self.cpredlayer(x[i, mask_index[i] + self.cls_token_num, :])
 
-        # calculate the NCE loss
+        # Calculate the NCE loss
         nce = torch.tensor(0.0).to(x.device)
         correct = torch.tensor(0.0).to(x.device)
         for i in np.arange(0, B):
-            # negative samples are from the same batch
-            # 8/12/2022: has a difference with equation (1) in the ssast paper but (likely) performance-wise similar, see https://github.com/YuanGongND/ssast/issues/13
-            total = torch.mm(encode_samples[i], torch.transpose(pred[i], 0, 1))  # e.g. size 100*100
-            correct += torch.sum(torch.eq(torch.argmax(self.softmax(total), dim=0), torch.arange(0, mask_patch, device=x.device)))  # correct is a tensor
-            nce += torch.sum(torch.diag(self.lsoftmax(total)))  # nce is a tensor
+            # Negative samples are from the same batch
+            # NOTE 8/12/2022: has a difference with equation (1) in the ssast paper but (likely) performance-wise similar, see https://github.com/YuanGongND/ssast/issues/13
+            total = torch.mm(encode_samples[i], torch.transpose(pred[i], 0, 1))
+            correct += torch.sum(torch.eq(torch.argmax(self.softmax(total), dim=0), torch.arange(0, mask_patch, device=x.device)))
+            nce += torch.sum(torch.diag(self.lsoftmax(total)))
+        
         acc = 1. * correct / (B * mask_patch)
         nce = nce / (-1. * B * mask_patch)
 
-        # visualize the masked area, for probing test only, set show_mask = False for any training/inference.
+        # Visualize the masked area (probing test only)
         if show_mask == False:
             return acc, nce
         else:
@@ -361,76 +371,69 @@ class ASTModel(nn.Module):
                 raise Exception('Currently only support single spectrogram probing test.')
 
             self.mask_correct = torch.nn.Parameter(torch.arange(0, mask_patch), requires_grad=False)
-
-            pred = input.clone()  # [B, 512, 256]
-            masked = input.clone()
+            
+            # Visualization relies on the raw patches (input_patches)
+            pred_vis = input_patches.clone()
+            masked_vis = input_patches.clone()
 
             for i in range(B):
                 result = [float(t) * 99 for t in torch.eq(torch.argmax(self.softmax(total), dim=0), self.mask_correct)]
-                pred[i, mask_index[i], :] = torch.tensor(result).reshape(mask_patch, 1).expand(mask_patch, 256)
-                masked[i, mask_index[i], :] = 99.0
-
-            # print(total)
-            # print(self.softmax(total))
-            # print(torch.argmax(self.softmax(total), dim=0))
-            # print(self.mask_correct)
-            # print(torch.eq(torch.argmax(self.softmax(total), dim=0), self.mask_correct))
-            # print([float(t)*99 for t in torch.eq(torch.argmax(self.softmax(total), dim=0), self.mask_correct)])
+                pred_vis[i, mask_index[i], :] = torch.tensor(result).reshape(mask_patch, 1).expand(mask_patch, 256)
+                masked_vis[i, mask_index[i], :] = 99.0
 
             fold = torch.nn.Fold(output_size=([self.input_fdim, self.input_tdim]), kernel_size=(self.fshape, self.tshape), stride=(self.fstride, self.tstride))
-            pred = fold(pred.transpose(1, 2))
-            masked = fold(masked.transpose(1, 2))
+            pred_vis = fold(pred_vis.transpose(1, 2))
+            masked_vis = fold(masked_vis.transpose(1, 2))
 
-            return pred, masked
+            return pred_vis, masked_vis
 
-    # # masked patch pretraining with generative objective
-    def mpg(self, input, mask_patch, cluster):
-        B = input.shape[0]
-        x = self.v.patch_embed(input)
-        input = self.unfold(input).transpose(1, 2)
 
-        # size 12(batch_size) * 100(#mask_patch), index of masked patches
-        mask_index = torch.empty((B, mask_patch), device=x.device, requires_grad=False).long()
-        # size 12(batch_size) * 512(sequence_len) * 768(hidden_dim)
-        mask_dense = torch.ones([x.shape[0], x.shape[1], x.shape[2]], device=x.device)
-        for i in range(B):
-            # randomly generate #mask_patch mask indexes without duplicate
-            if cluster == True:
-                # use this if you are masking e.g. 16*16 patches
-                mask_index[i] = self.gen_maskid_patch(self.num_patches, mask_patch)
-            else:
-                # use this if you are masking frame, i.e., 128*2 patches
-                mask_index[i] = self.gen_maskid_frame(self.num_patches, mask_patch)
-            mask_dense[i, mask_index[i], :] = 0
-
-        mask_tokens = self.mask_embed.expand(B, x.shape[1], -1)
-
-        # follow BEIT paper, mask with learnable masking embedding, but no performance diff observed compared with masking with 0s.
-        x = x * mask_dense + (1-mask_dense) * mask_tokens
-
-        # go through the Transformer layers
-        cls_tokens = self.v.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
-        dist_token = self.v.dist_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, dist_token, x), dim=1)
-        x = x + self.v.pos_embed
-        x = self.v.pos_drop(x)
-        for blk in self.v.blocks:
-            x = blk(x)
-        x = self.v.norm(x)
-
-        pred = torch.empty((B, mask_patch, self.fshape * self.tshape), device=x.device).float()  # e.g. size 12*100*256
-        target = torch.empty((B, mask_patch, self.fshape * self.tshape), device=x.device).float() # e.g. size 12*100*256
+    def _mpg_head(self, x, input_patches, mask_index, mask_patch):
+        B = x.shape[0]
+        pred = torch.empty((B, mask_patch, self.fshape * self.tshape), device=x.device).float()
+        target = torch.empty((B, mask_patch, self.fshape * self.tshape), device=x.device).float()
 
         for i in range(B):
-            #  +2 for indexes because cls and dis token
+            # + self.cls_token_num to skip cls and dist tokens
+            # Project transformer output to reconstruction dimension
             pred[i] = self.gpredlayer(x[i, mask_index[i] + self.cls_token_num, :])
-            target[i] = input[i, mask_index[i], :]
-
-        # calculate the MSE loss
+            # Target is the raw input patch
+            target[i] = input_patches[i, mask_index[i], :]
+        
         mse = torch.mean((pred - target) ** 2)
-
         return mse
 
+    # Masked patch pretraining with discriminative objective
+    def mpc(self, x, mask_patch, cluster, show_mask=False):
+        """Masked patch pretraining with discriminative objective"""
+        # General Model Body
+        x, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
+        # MPC Head Logic
+        return self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask)
+        
+
+    # Masked patch pretraining with generative objective
+    def mpg(self, x, mask_patch, cluster):
+        """Masked patch pretraining with generative objective"""
+        # General Model Body
+        x, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
+        # MPG Head Logic
+        mse = self._mpg_head(x, input_patches, mask_index, mask_patch)
+
+        return mse
+    
+    # Masked patch joint pretraining with generative and discriminative objective
+    def mpj(self, x, mask_patch, cluster, mpg_weight=10):
+        """Masked patch joint pretraining with generative and discriminative objective"""
+        # General Model Body
+        x, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
+        # Both MPC and MPG Head Logic
+        mse = self._mpg_head(x, input_patches, mask_index, mask_patch)
+        acc, nce = self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask=False)
+        loss = nce + (mpg_weight * mse)
+        return loss
+    
+    
     def forward(self, x, task, cluster=True, mask_patch=400):
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
         x = x.unsqueeze(1)
@@ -449,6 +452,8 @@ class ASTModel(nn.Module):
         # pretraining, masked patch reconstruction (generative objective)
         elif task == 'pretrain_mpg':
             return self.mpg(x, mask_patch=mask_patch, cluster=cluster)
+        elif task == 'pretrain_mpj':
+            return self.mpj(x, mask_patch=mask_patch, cluster=cluster)
         elif task == 'visualize_mask':
             return self.mpc(x, mask_patch=mask_patch, cluster=cluster, show_mask=True)
         else:
