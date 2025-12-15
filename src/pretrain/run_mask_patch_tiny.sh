@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name="ssast-pretrain-maskpatch-tiny"
-#SBATCH --partition=Teach-Standard
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
