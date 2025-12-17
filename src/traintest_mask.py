@@ -108,7 +108,6 @@ def trainmask(audio_model, train_loader, test_loader, args):
             else:
                 raise Exception("No such pretraining task {}".format(args.task))
 
-            print("Using task: {}".format(args.task))
 
             optimizer.zero_grad()
             loss.backward()
@@ -227,6 +226,8 @@ def validatemask(audio_model, val_loader, args, epoch):
             elif args.task == 'pretrain_joint':
                 acc, _ = audio_model(audio_input, 'pretrain_mpc', mask_patch=400, cluster=cluster)
                 mse = audio_model(audio_input, 'pretrain_mpg', mask_patch=400, cluster=cluster)
+            else:
+                raise Exception("No such pretraining task {}".format(args.task))
 
                 A_acc.append(torch.mean(acc).cpu())
                 # A_nce then tracks the mse loss
