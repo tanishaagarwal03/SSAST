@@ -105,6 +105,10 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 loss2 = audio_model(audio_input, 'pretrain_mpg', mask_patch=args.mask_patch, cluster=cluster)
                 loss2 = loss2.mean()
                 loss = loss1 + 10 * loss2
+            else:
+                raise Exception("No such pretraining task {}".format(args.task))
+
+            print("Using task: {}".format(args.task))
 
             optimizer.zero_grad()
             loss.backward()
