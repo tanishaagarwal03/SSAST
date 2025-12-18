@@ -94,7 +94,7 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 # dirty code to make the code report mse loss for generative objective
                 acc = loss
             elif args.task == 'pretrain_mpj':
-                loss = audio_model(audio_input, args.task, mask_patch=args.mask_patch, cluster=cluster, mpg_weight=10)
+                loss = audio_model(audio_input, args.task, mask_patch=args.mask_patch, cluster=cluster, args={'mpg_weight': 10})
                 loss = loss.mean()
                 # dirty code to make the code report the combined loss for joint objective
                 acc = loss

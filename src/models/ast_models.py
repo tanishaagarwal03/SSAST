@@ -437,7 +437,7 @@ class ASTModel(nn.Module):
         return combined_loss, acc
     
     
-    def forward(self, x, task, cluster=True, mask_patch=400):
+    def forward(self, x, task, cluster=True, mask_patch=400, args=None):
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
         x = x.unsqueeze(1)
         x = x.transpose(2, 3)
@@ -456,7 +456,11 @@ class ASTModel(nn.Module):
         elif task == 'pretrain_mpg':
             return self.mpg(x, mask_patch=mask_patch, cluster=cluster)
         elif task == 'pretrain_mpj':
-            return self.mpj(x, mask_patch=mask_patch, cluster=cluster)
+            if args is not None and 'mpg_weight' in args:
+                mpg_weight = args['mpg_weight']
+            else:
+                mpg_weight = 10
+            return self.mpj(x, mask_patch=mask_patch, cluster=cluster, mpg_weight=mpg_weight)
         elif task == 'visualize_mask':
             return self.mpc(x, mask_patch=mask_patch, cluster=cluster, show_mask=True)
         else:
