@@ -16,6 +16,19 @@ def update_cluster_centroids(audio_model, train_loader, args):
     print(f"Updating centroids based on Layer {args.target_layer_idx} features...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
+    # Temporarily disable augmentations
+    dataset = train_loader.dataset
+    # Store original states
+    orig_mixup = dataset.mixup
+    orig_noise = dataset.noise
+    orig_freqm = dataset.freqm
+    orig_timem = dataset.timem
+    # Disable for feature extraction
+    dataset.mixup = 0
+    dataset.noise = False
+    dataset.freqm = 0
+    dataset.timem = 0
+    
     # We don't need the whole dataset for K-Means, just a representative sample
     num_batches_to_sample = 200
     collected_features = []
@@ -51,6 +64,13 @@ def update_cluster_centroids(audio_model, train_loader, args):
     new_centroids = torch.nn.functional.normalize(new_centroids, p=2, dim=1)
     model.cluster_centroids.copy_(new_centroids)
     print("Centroids updated.")
+    
+    # Restore augmentations
+    dataset.mixup = orig_mixup
+    dataset.noise = orig_noise
+    dataset.freqm = orig_freqm
+    dataset.timem = orig_timem
+    
     # Reset model to train mode
     model.train()
 
@@ -125,6 +145,7 @@ def trainmask(audio_model, train_loader, test_loader, args):
                      batch_size=args.batch_size * 2, # Faster inference batch size
                      num_workers=args.num_workers
                  )
+                 audio_model.train()
 
 
         for i, (audio_input, _, cluster_target) in enumerate(train_loader):
@@ -284,7 +305,7 @@ def validatemask(audio_model, val_loader, args, epoch):
     A_acc = []
     A_nce = []
     with torch.no_grad():
-        for i, (audio_input, _) in enumerate(val_loader):
+        for i, (audio_input, _, _) in enumerate(val_loader):
             audio_input = audio_input.to(device)
 
             # use cluster masking only when masking patches, not frames
@@ -307,6 +328,11 @@ def validatemask(audio_model, val_loader, args, epoch):
             elif args.task == 'pretrain_joint':
                 acc, _ = audio_model(audio_input, 'pretrain_mpc', mask_patch=400, cluster=cluster)
                 mse = audio_model(audio_input, 'pretrain_mpg', mask_patch=400, cluster=cluster)
+            elif args.task == 'pretrain_mpmhb':
+                acc, _ = audio_model(audio_input, 'pretrain_mpc', mask_patch=400, cluster=cluster)
+                mse = audio_model(audio_input, 'pretrain_mpg', mask_patch=400, cluster=cluster)
+                A_acc.append(torch.mean(acc).cpu())
+                A_nce.append(torch.mean(mse).cpu()) # Tracking MSE in the 'nce' slot for reporting
             else:
                 raise Exception("No such pretraining task {}".format(args.task))
 

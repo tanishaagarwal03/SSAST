@@ -104,10 +104,14 @@ class AudioDataset(Dataset):
         print("Generating cluster labels for the entire dataset (Teacher Pass)...")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        # Temporarily disable mixup/noise to get clean labels for the original audio
+        # Temporarily disable mixup/noise/SpecAugment to get clean labels for the original audio
         original_mixup = self.mixup
         self.mixup = 0 
         self.noise = False 
+        original_freqm = self.freqm
+        original_timem = self.timem
+        self.freqm = 0
+        self.timem = 0
         
         # Create a sequential loader (no shuffle)
         temp_loader = torch.utils.data.DataLoader(
@@ -145,6 +149,10 @@ class AudioDataset(Dataset):
         # Restore original augmentation settings
         self.mixup = original_mixup
         self.noise = self.audio_conf.get('noise')
+        self.mixup = original_mixup
+        self.noise = self.audio_conf.get('noise')
+        self.freqm = original_freqm
+        self.timem = original_timem
         
         print(f"Finished labeling. Stored IDs shape: {self.cluster_ids.shape}")
 
@@ -259,7 +267,11 @@ class AudioDataset(Dataset):
 
         if self.noise == True:
             fbank = fbank + torch.rand(fbank.shape[0], fbank.shape[1]) * np.random.rand() / 10
-            fbank = torch.roll(fbank, np.random.randint(-10, 10), 0)
+            if not self.use_cluster_labels:
+                # Only apply roll when not using cluster labels to ensure consistency as cluster labels are precomputed
+                fbank = torch.roll(fbank, np.random.randint(-10, 10), 0)
+            else:
+                print("Warning: Noise augmentation is enabled but cluster labels are being used. Disabled torch.roll but keeps additive noise.")
             
         # Get pre-computed cluster ID if available
         cluster_target = -1 # Default placeholder
@@ -267,6 +279,8 @@ class AudioDataset(Dataset):
             # We map the index directly. Note: if mixup is active, this ID corresponds 
             # to the primary sample. Standard HuBERT does not mixup targets.
             cluster_target = self.cluster_ids[index]
+            if self.mixup > 0:
+                print("Warning: Mixup is enabled but cluster targets correspond only to primary samples.")
 
         # the output fbank shape is [time_frame_num, frequency_bins], e.g., [1024, 128]
         return fbank, label_indices, cluster_target
