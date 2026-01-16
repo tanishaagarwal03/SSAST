@@ -7,6 +7,52 @@ import time
 import torch
 import numpy as np
 import pickle
+from sklearn.cluster import MiniBatchKMeans
+
+def update_cluster_centroids(audio_model, train_loader, args):
+    """
+    Extracts features from a subset of data and runs K-Means to update centroids.
+    """
+    print(f"Updating centroids based on Layer {args.target_layer_idx} features...")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # We don't need the whole dataset for K-Means, just a representative sample
+    num_batches_to_sample = 200
+    collected_features = []
+    
+    if isinstance(audio_model, torch.nn.DataParallel):
+        model = audio_model.module
+    else:
+        model = audio_model
+        
+    model.eval()
+    with torch.no_grad():
+        # Iterate over loader (unpacking 3 items: input, label, target_id)
+        for i, (audio_input, _, _) in enumerate(train_loader): 
+            if i >= num_batches_to_sample: break
+            
+            audio_input = audio_input.to(device)
+            # Transpose for AST input
+            x = audio_input.unsqueeze(1).transpose(2, 3)
+            
+            # Extract features
+            features = model.get_intermediate_layers(x, args.target_layer_idx)
+            # Flatten to [Patches, Dim] and move to CPU
+            collected_features.append(features.contiguous().view(-1, features.shape[-1]).cpu().numpy())
+            
+    all_features = np.concatenate(collected_features, axis=0)
+    print(f"Running K-Means on {all_features.shape[0]} patches...")
+    
+    # Run K-Means
+    kmeans = MiniBatchKMeans(n_clusters=model.num_clusters, batch_size=256, random_state=0).fit(all_features)
+    
+    # Update Model Centroids
+    new_centroids = torch.tensor(kmeans.cluster_centers_, dtype=torch.float).to(device)
+    new_centroids = torch.nn.functional.normalize(new_centroids, p=2, dim=1)
+    model.cluster_centroids.copy_(new_centroids)
+    print("Centroids updated.")
+    # Reset model to train mode
+    model.train()
 
 def trainmask(audio_model, train_loader, test_loader, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -63,7 +109,25 @@ def trainmask(audio_model, train_loader, test_loader, args):
         # save from-scratch models before the first epoch
         torch.save(audio_model.state_dict(), "%s/models/audio_model.%d.pth" % (exp_dir, global_step+1))
 
-        for i, (audio_input, _) in enumerate(train_loader):
+        # Check if we need to update centroids and re-label the dataset for MelHuBERT loss
+        if args.task == 'pretrain_mpmhb':
+             # Usually update at epoch 1 (init) and then every freq
+             # (epoch - 1) ensures we run it at the start of epoch 1
+             if (epoch - 1) % args.cluster_update_freq == 0:
+                 print(f"\n--- Epoch {epoch}: Updating Clusters & Re-labeling Dataset ---")
+                 
+                 # Update Centroids (K-Means)
+                 update_cluster_centroids(audio_model, train_loader, args)
+                 
+                 # Re-Label Entire Dataset (Populates dataset.cluster_ids)
+                 train_loader.dataset.generate_cluster_labels(
+                     audio_model, 
+                     batch_size=args.batch_size * 2, # Faster inference batch size
+                     num_workers=args.num_workers
+                 )
+
+
+        for i, (audio_input, _, cluster_target) in enumerate(train_loader):
             # measure data loading time
             B = audio_input.size(0)
             audio_input = audio_input.to(device, non_blocking=True)
@@ -105,6 +169,21 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 loss2 = audio_model(audio_input, 'pretrain_mpg', mask_patch=args.mask_patch, cluster=cluster)
                 loss2 = loss2.mean()
                 loss = loss1 + 10 * loss2
+            if args.task == 'pretrain_mpmhb':
+                loss_args = {'mpg_weight': args.mpg_weight, 'mhb_weight': args.mhb_weight}
+                
+                # Move targets to GPU (targets are integers)
+                cluster_target = cluster_target.to(device, non_blocking=True)
+                
+                # Pass 'target_ids' explicitly to the model
+                total_loss, acc_mpc, loss_mpg, loss_mhb = audio_model(
+                    audio_input, args.task, mask_patch=args.mask_patch, 
+                    cluster=cluster, target_ids=cluster_target, args=loss_args
+                )
+                
+                # Mean across GPUs
+                loss = total_loss.mean()
+                acc = acc_mpc.mean()
             else:
                 raise Exception("No such pretraining task {}".format(args.task))
 
@@ -136,6 +215,8 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 if np.isnan(loss_meter.avg):
                     print("training diverged...")
                     return
+            if print_step and args.task == 'pretrain_mpmhb':
+                print(f'   >> MPG: {loss_mpg.mean().item():.3f}, MHB: {loss_mhb.mean().item():.3f}')
 
             end_time = time.time()
             global_step += 1

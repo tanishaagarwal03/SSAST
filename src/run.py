@@ -65,13 +65,20 @@ parser.add_argument("--fshape", type=int, help="shape of patch on the frequency 
 parser.add_argument("--tshape", type=int, help="shape of patch on the time dimension")
 parser.add_argument('--model_size', help='the size of AST models', type=str, default='base384')
 
-parser.add_argument("--task", type=str, default='ft_cls', help="pretraining or fine-tuning task", choices=["ft_avgtok", "ft_cls", "pretrain_mpc", "pretrain_mpg", "pretrain_joint", "pretrain_mpj"])
+parser.add_argument("--task", type=str, default='ft_cls', help="pretraining or fine-tuning task", choices=["ft_avgtok", "ft_cls", "pretrain_mpc", "pretrain_mpg", "pretrain_joint", "pretrain_mpj", "pretrain_mpmhb"])
 
 # pretraining augments
 #parser.add_argument('--pretrain_stage', help='True for self-supervised pretraining stage, False for fine-tuning stage', type=ast.literal_eval, default='False')
 parser.add_argument('--mask_patch', help='how many patches to mask (used only for ssl pretraining)', type=int, default=400)
 parser.add_argument("--cluster_factor", type=int, default=3, help="mask clutering factor")
 parser.add_argument("--epoch_iter", type=int, default=2000, help="for pretraining, how many iterations to verify and save models")
+
+# MHB Hyperparameters
+parser.add_argument("--num_clusters", type=int, default=512, help="Number of clusters (K)")
+parser.add_argument("--mhb_weight", type=float, default=1.0, help="Weight for clustering loss")
+parser.add_argument("--mpg_weight", type=float, default=10.0, help="Weight for generation loss")
+parser.add_argument("--target_layer_idx", type=int, default=6, help="Transformer layer to use for targets (0-11)")
+parser.add_argument("--cluster_update_freq", type=int, default=5, help="Update centroids/labels every N epochs")
 
 # fine-tuning arguments
 parser.add_argument("--pretrained_mdl_path", type=str, default=None, help="the ssl pretrained models path")
@@ -130,12 +137,14 @@ if 'pretrain' in args.task:
         print('The num_mel_bins {:d} and fshape {:d} are same, masking a typical time frame, not using cluster masking.'.format(args.num_mel_bins, args.fshape))
     # no label dimension needed as it is self-supervised, fshape=fstride and tshape=tstride
     audio_model = ASTModel(fshape=args.fshape, tshape=args.tshape, fstride=args.fshape, tstride=args.tshape,
-                       input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=True)
+                       input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=True,
+                       num_clusters=args.num_clusters, target_layer_idx=args.target_layer_idx)
 # in the fine-tuning stage
 else:
     audio_model = ASTModel(label_dim=args.n_class, fshape=args.fshape, tshape=args.tshape, fstride=args.fstride, tstride=args.tstride,
                        input_fdim=args.num_mel_bins, input_tdim=args.target_length, model_size=args.model_size, pretrain_stage=False,
-                       load_pretrained_mdl_path=args.pretrained_mdl_path)
+                       load_pretrained_mdl_path=args.pretrained_mdl_path,
+                       num_clusters=args.num_clusters)
 
 if not isinstance(audio_model, torch.nn.DataParallel):
     audio_model = torch.nn.DataParallel(audio_model)
