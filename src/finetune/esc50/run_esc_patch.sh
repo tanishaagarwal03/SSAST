@@ -1,13 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name="ssast-esc50"
-#SBATCH --partition=Teach-Standard
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-#SBATCH --time=4:00:00
 #SBATCH --output=./slurm_log/log_%j.txt
 
+set -x
 
 # comment this line if not running on sls cluster
 # . /data/sls/scratch/share-201907/slstoolchainrc
@@ -23,16 +22,16 @@ then
 else
     python prep_esc50.py
 fi
-if [ -e SSAST-Tiny-Patch-400.pth ]
-then
-    echo "pretrained model already downloaded."
-else
-    wget https://www.dropbox.com/s/ewrzpco95n9jdz6/SSAST-Tiny-Patch-400.pth?dl=1 -O SSAST-Tiny-Patch-400.pth
-fi
+# if [ -e SSAST-Tiny-Patch-400.pth ]
+# then
+#     echo "pretrained model already downloaded."
+# else
+#     wget https://www.dropbox.com/s/ewrzpco95n9jdz6/SSAST-Tiny-Patch-400.pth?dl=1 -O SSAST-Tiny-Patch-400.pth
+# fi
 
-pretrain_exp=
-pretrain_model=SSAST-Tiny-Patch-400
-pretrain_path=./${pretrain_model}.pth
+pretrain_exp=./../../pretrain/exp/mask01-tiny-f16-t16-b64-lr5e-4-m400-pretrain_mpmhb-librispeech360
+pretrain_model=SSAST-Tiny-Patch-400-pretrain_mpmhb
+pretrain_path=./${pretrain_exp}/models/best_audio_model.pth
 
 dataset=esc50
 dataset_mean=-6.6268077
