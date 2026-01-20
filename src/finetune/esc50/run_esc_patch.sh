@@ -33,6 +33,8 @@ pretrain_exp=./../../pretrain/exp/mask01-tiny-f16-t16-b64-lr5e-4-m400-pretrain_m
 pretrain_model=SSAST-Tiny-Patch-400-pretrain_mpmhb
 pretrain_path=./${pretrain_exp}/models/best_audio_model.pth
 
+num_workers=4
+
 dataset=esc50
 dataset_mean=-6.6268077
 dataset_std=5.358466
@@ -76,7 +78,7 @@ do
   --pretrained_mdl_path ${pretrain_path} \
   --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
   --num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
-  --lrscheduler_start 6 --lrscheduler_step 1 --lrscheduler_decay 0.85 --wa False --loss CE --metrics acc
+  --lrscheduler_start 6 --lrscheduler_step 1 --lrscheduler_decay 0.85 --wa False --loss CE --metrics acc --num_workers ${num_workers}
 done
 
 python ./get_esc_result.py --exp_path ${base_exp_dir}
