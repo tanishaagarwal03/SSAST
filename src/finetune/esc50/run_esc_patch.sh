@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name="ssast-esc50"
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:a6000:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --output=./slurm_log/log_%j.txt
@@ -78,7 +78,7 @@ do
   --pretrained_mdl_path ${pretrain_path} \
   --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} \
   --num_mel_bins 128 --head_lr ${head_lr} --noise ${noise} \
-  --lrscheduler_start 6 --lrscheduler_step 1 --lrscheduler_decay 0.85 --wa False --loss CE --metrics acc --num_workers ${num_workers}
+  --lrscheduler_start 6 --lrscheduler_step 1 --lrscheduler_decay 0.85 --wa False --loss CE --metrics acc --num-workers ${num_workers}
 done
 
 python ./get_esc_result.py --exp_path ${base_exp_dir}

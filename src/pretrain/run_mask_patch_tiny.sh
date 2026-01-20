@@ -79,7 +79,7 @@ timem=0
 # no mixup training
 mixup=0
 
-num_workers=8\
+num_workers=8
 
 exp_dir=./exp/mask01-${model_size}-f${fshape}-t${tshape}-b$batch_size-lr${lr}-m${mask_patch}-${task}-${dataset}
 
@@ -93,4 +93,4 @@ CUDA_CACHE_DISABLE=1 python -W ignore ../run.py --dataset ${dataset} \
 --model_size ${model_size} --mask_patch ${mask_patch} --n-print-steps 100 \
 --task ${task} --lr_patience ${lr_patience} --epoch_iter 800 \
 --num_clusters ${num_clusters} --mhb_weight ${mhb_weight} --mpg_weight ${mpg_weight} \
---target_layer_idx ${target_layer_idx} --cluster_update_freq ${cluster_update_freq} --num_workers ${num_workers} \
+--target_layer_idx ${target_layer_idx} --cluster_update_freq ${cluster_update_freq} --num-workers ${num_workers}
