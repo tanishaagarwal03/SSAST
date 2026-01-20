@@ -45,8 +45,8 @@ mask_patch=400
 num_clusters=512        # Number of K-means clusters
 mhb_weight=1.0          # Weight for the cluster ID prediction loss
 mpg_weight=10.0         # Weight for the reconstruction loss
-target_layer_idx=6      # Teacher layer (Tiny model has 12 layers, 6 is middle)
-cluster_update_freq=5   # Re-label dataset every 5 epochs
+target_layer_idx=-1     # Teacher layer (Tiny model has 12 layers, 6 is middle). -1 indicates using raw patch features
+cluster_update_freq=-1   # Re-label dataset every n epochs. If -1, only label once at start
 
 # audioset and librispeech
 # dataset=asli

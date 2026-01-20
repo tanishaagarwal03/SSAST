@@ -142,9 +142,18 @@ class ASTModel(nn.Module):
             self.patch_dim = fshape * tshape 
             self.num_clusters = num_clusters
             self.target_layer_idx = target_layer_idx
+            
+            # Determine dimension for centroids
+            # If using raw patch features
+            if self.target_layer_idx == -1:
+                # Use raw patch dimension (e.g., 16*16 = 256)
+                self.centroid_dim = self.patch_dim
+            else:
+                # Use Transformer embedding dimension (e.g., 768)
+                self.centroid_dim = self.original_embedding_dim
 
-            # Buffer for centroids (Not a Parameter, won't be updated by optimizer)
-            self.register_buffer('cluster_centroids', torch.randn(self.num_clusters, self.original_embedding_dim))
+            # Buffer for centroids(Not a Parameter, won't be updated by optimizer)
+            self.register_buffer('cluster_centroids', torch.randn(self.num_clusters, self.centroid_dim))
             self.cluster_centroids.data = F.normalize(self.cluster_centroids.data, p=2, dim=1)
             
 
@@ -303,32 +312,50 @@ class ASTModel(nn.Module):
         return x
 
     def get_intermediate_layers(self, x, layer_idx):
-        """Extract Unmasked Features from Transformer Layer 'layer_idx'"""
-        # Pass through patch embedding
-        x = self.v.patch_embed(x)
-        B = x.shape[0]
-        # Add cls and dist tokens
-        cls_tokens = self.v.cls_token.expand(B, -1, -1)
-        dist_token = self.v.dist_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, dist_token, x), dim=1)
-        # Add positional embeddings
-        x = x + self.v.pos_embed
-        # Apply dropout
-        x = self.v.pos_drop(x)
-        # Pass through Transformer blocks up to layer_idx
-        for i, blk in enumerate(self.v.blocks):
-            x = blk(x)
-            if i == layer_idx:
-                break
-        return x[:, self.cls_token_num:, :]
+        """
+        Extract Unmasked Features from Transformer Layer 'layer_idx'
+        If layer_idx is -1, returns the RAW Unfolded Patches (Spectrogram chunks).
+        If layer_idx is >= 0, returns the output of that Transformer Block.
+        """
+        if layer_idx == -1:
+            # x is [Batch, 1, F, T] (e.g., [B, 1, 128, 1024])
+            # self.unfold was defined in __init__ as:
+            # torch.nn.Unfold(kernel_size=(fshape, tshape), stride=(fstride, tstride))
+            
+            # Extract patches: Output is [B, Patch_Dim, Num_Patches]
+            patches = self.unfold(x)
+            
+            # Transpose to [B, Num_Patches, Patch_Dim] to match Transformer output shape
+            patches = patches.transpose(1, 2)
+            
+            return patches
+        else:
+            # Pass through patch embedding
+            x = self.v.patch_embed(x)
+            B = x.shape[0]
+            # Add cls and dist tokens
+            cls_tokens = self.v.cls_token.expand(B, -1, -1)
+            dist_token = self.v.dist_token.expand(B, -1, -1)
+            x = torch.cat((cls_tokens, dist_token, x), dim=1)
+            # Add positional embeddings
+            x = x + self.v.pos_embed
+            # Apply dropout
+            x = self.v.pos_drop(x)
+            # Pass through Transformer blocks up to layer_idx
+            for i, blk in enumerate(self.v.blocks):
+                x = blk(x)
+                if i == layer_idx:
+                    break
+            return x[:, self.cls_token_num:, :]
 
     @torch.no_grad()
     def get_cluster_labels(self, x):
         """Helper for Dataloader Labeling"""
         # Run pass to get intermediate features
+        # Returns [B, N, 256] if target_layer_idx == -1
         target_features = self.get_intermediate_layers(x, self.target_layer_idx)
         # Match to centroids
-        flat_features = target_features.contiguous().view(-1, self.original_embedding_dim)
+        flat_features = target_features.contiguous().view(-1, self.centroid_dim)
         flat_features = F.normalize(flat_features, p=2, dim=1)
         centroids = F.normalize(self.cluster_centroids, p=2, dim=1)
         # Cosine Similarity -> Argmax

@@ -133,19 +133,20 @@ def trainmask(audio_model, train_loader, test_loader, args):
         if args.task == 'pretrain_mpmhb':
              # Usually update at epoch 1 (init) and then every freq
              # (epoch - 1) ensures we run it at the start of epoch 1
-             if (epoch - 1) % args.cluster_update_freq == 0:
-                 print(f"\n--- Epoch {epoch}: Updating Clusters & Re-labeling Dataset ---")
-                 
-                 # Update Centroids (K-Means)
-                 update_cluster_centroids(audio_model, train_loader, args)
-                 
-                 # Re-Label Entire Dataset (Populates dataset.cluster_ids)
-                 train_loader.dataset.generate_cluster_labels(
-                     audio_model, 
-                     batch_size=args.batch_size * 2, # Faster inference batch size
-                     num_workers=args.num_workers
-                 )
-                 audio_model.train()
+             # If freq is -1, we only update once at epoch 1
+            if (epoch == 1) or (args.cluster_update_freq > 0 and (epoch - 1) % args.cluster_update_freq == 0):
+                print(f"\n--- Epoch {epoch}: Updating Clusters & Re-labeling Dataset ---")
+                
+                # Update Centroids (K-Means)
+                update_cluster_centroids(audio_model, train_loader, args)
+                
+                # Re-Label Entire Dataset (Populates dataset.cluster_ids)
+                train_loader.dataset.generate_cluster_labels(
+                    audio_model, 
+                    batch_size=args.batch_size * 2, # Faster inference batch size
+                    num_workers=args.num_workers
+                )
+                audio_model.train()
 
 
         for i, (audio_input, _, cluster_target) in enumerate(train_loader):
