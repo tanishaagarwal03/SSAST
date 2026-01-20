@@ -91,6 +91,70 @@ class AudioDataset(Dataset):
         self.index_dict = make_index_dict(label_csv)
         self.label_num = len(self.index_dict)
         print('number of classes is {:d}'.format(self.label_num))
+        
+        # Initialize Cluster ID Storage for MelHuBERT loss
+        self.cluster_ids = None 
+        self.use_cluster_labels = False
+        
+    def generate_cluster_labels(self, audio_model, batch_size=64, num_workers=4):
+        """
+        Runs the entire dataset through the model to generate cluster IDs.
+        Stores them in self.cluster_ids for retrieval during training.
+        """
+        print("Generating cluster labels for the entire dataset (Teacher Pass)...")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # Temporarily disable mixup/noise/SpecAugment to get clean labels for the original audio
+        original_mixup = self.mixup
+        self.mixup = 0 
+        self.noise = False 
+        original_freqm = self.freqm
+        original_timem = self.timem
+        self.freqm = 0
+        self.timem = 0
+        
+        # Create a sequential loader (no shuffle)
+        temp_loader = torch.utils.data.DataLoader(
+            self, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True
+        )
+        
+        all_ids = []
+        
+        # Handle DataParallel unwrapping
+        if isinstance(audio_model, torch.nn.DataParallel):
+            model = audio_model.module
+        else:
+            model = audio_model
+            
+        model.eval()
+        
+        with torch.no_grad():
+            for i, (fbank, _, _) in enumerate(temp_loader):
+                fbank = fbank.to(device)
+                # Ensure input shape is [B, 1, F, T] for AST
+                if fbank.dim() == 3:
+                     fbank = fbank.unsqueeze(1).transpose(2, 3)
+                
+                # Get IDs from model (defined in ASTModel next)
+                ids = model.get_cluster_labels(fbank)
+                all_ids.append(ids)
+                
+                if i % 100 == 0:
+                    print(f"Labeled batch {i}/{len(temp_loader)}")
+
+        # Concatenate and Store: [Total_Samples, N_Patches]
+        self.cluster_ids = torch.cat(all_ids, dim=0)
+        self.use_cluster_labels = True
+        
+        # Restore original augmentation settings
+        self.mixup = original_mixup
+        self.noise = self.audio_conf.get('noise')
+        self.mixup = original_mixup
+        self.noise = self.audio_conf.get('noise')
+        self.freqm = original_freqm
+        self.timem = original_timem
+        
+        print(f"Finished labeling. Stored IDs shape: {self.cluster_ids.shape}")
 
     def _wav2fbank(self, filename, filename2=None):
         # mixup
@@ -203,10 +267,23 @@ class AudioDataset(Dataset):
 
         if self.noise == True:
             fbank = fbank + torch.rand(fbank.shape[0], fbank.shape[1]) * np.random.rand() / 10
-            fbank = torch.roll(fbank, np.random.randint(-10, 10), 0)
+            if not self.use_cluster_labels:
+                # Only apply roll when not using cluster labels to ensure consistency as cluster labels are precomputed
+                fbank = torch.roll(fbank, np.random.randint(-10, 10), 0)
+            else:
+                print("Warning: Noise augmentation is enabled but cluster labels are being used. Disabled torch.roll but keeps additive noise.")
+            
+        # Get pre-computed cluster ID if available
+        cluster_target = -1 # Default placeholder
+        if self.use_cluster_labels and self.cluster_ids is not None:
+            # We map the index directly. Note: if mixup is active, this ID corresponds 
+            # to the primary sample. Standard HuBERT does not mixup targets.
+            cluster_target = self.cluster_ids[index]
+            if self.mixup > 0:
+                print("Warning: Mixup is enabled but cluster targets correspond only to primary samples.")
 
         # the output fbank shape is [time_frame_num, frequency_bins], e.g., [1024, 128]
-        return fbank, label_indices
+        return fbank, label_indices, cluster_target
 
     def __len__(self):
         return len(self.data)

@@ -38,8 +38,15 @@ else
     echo "JSON file already exists at $json_file. Skipping preparation."
 fi
 
-task=pretrain_mpj
+task=pretrain_mpmhb
 mask_patch=400
+
+# MHB Arguments
+num_clusters=512        # Number of K-means clusters
+mhb_weight=1.0          # Weight for the cluster ID prediction loss
+mpg_weight=10.0         # Weight for the reconstruction loss
+target_layer_idx=6      # Teacher layer (Tiny model has 12 layers, 6 is middle)
+cluster_update_freq=5   # Re-label dataset every 5 epochs
 
 # audioset and librispeech
 # dataset=asli
@@ -82,4 +89,6 @@ CUDA_CACHE_DISABLE=1 python -W ignore ../run.py --dataset ${dataset} \
 --tstride $tstride --fstride $fstride --fshape ${fshape} --tshape ${tshape} \
 --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} --num_mel_bins ${num_mel_bins} \
 --model_size ${model_size} --mask_patch ${mask_patch} --n-print-steps 100 \
---task ${task} --lr_patience ${lr_patience} --epoch_iter 800
+--task ${task} --lr_patience ${lr_patience} --epoch_iter 800 \
+--num_clusters ${num_clusters} --mhb_weight ${mhb_weight} --mpg_weight ${mpg_weight} \
+--target_layer_idx ${target_layer_idx} --cluster_update_freq ${cluster_update_freq}

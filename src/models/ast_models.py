@@ -19,6 +19,7 @@ from timm.models.layers import to_2tuple
 from random import randrange
 from matplotlib import pyplot as plt
 import random
+from torch.nn import functional as F
 
 # override the timm package to relax the input shape constraint.
 class PatchEmbed(nn.Module):
@@ -55,7 +56,8 @@ class ASTModel(nn.Module):
     def __init__(self, label_dim=527,
                  fshape=128, tshape=2, fstride=128, tstride=2,
                  input_fdim=128, input_tdim=1024, model_size='base',
-                 pretrain_stage=True, load_pretrained_mdl_path=None):
+                 pretrain_stage=True, load_pretrained_mdl_path=None,
+                 num_clusters=512, target_layer_idx=6):
 
         super(ASTModel, self).__init__()
         assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
@@ -134,6 +136,17 @@ class ASTModel(nn.Module):
             new_pos_embed = nn.Parameter(torch.zeros(1, self.v.patch_embed.num_patches + self.cls_token_num, self.original_embedding_dim))
             self.v.pos_embed = new_pos_embed
             trunc_normal_(self.v.pos_embed, std=.02)
+            
+            # MelHuBERT loss initialisation
+            self.mhb_pred_layer = nn.Linear(self.original_embedding_dim, num_clusters)
+            self.patch_dim = fshape * tshape 
+            self.num_clusters = num_clusters
+            self.target_layer_idx = target_layer_idx
+
+            # Buffer for centroids (Not a Parameter, won't be updated by optimizer)
+            self.register_buffer('cluster_centroids', torch.randn(self.num_clusters, self.original_embedding_dim))
+            self.cluster_centroids.data = F.normalize(self.cluster_centroids.data, p=2, dim=1)
+            
 
         # use a pretrained models for finetuning
         elif pretrain_stage == False:
@@ -154,7 +167,8 @@ class ASTModel(nn.Module):
             # we need to know input_fdim and input_tdim to do positional embedding cut/interpolation.
             # generally it should be better to use same input_fdim during pretraining and finetuning, but input_tdim can be safely different
             audio_model = ASTModel(fstride=p_fshape, tstride=p_tshape, fshape=p_fshape, tshape=p_tshape,
-                                   input_fdim=p_input_fdim, input_tdim=p_input_tdim, pretrain_stage=True, model_size=model_size)
+                                   input_fdim=p_input_fdim, input_tdim=p_input_tdim, pretrain_stage=True, model_size=model_size,
+                                   num_clusters=num_clusters)
             audio_model = torch.nn.DataParallel(audio_model)
             audio_model.load_state_dict(sd, strict=False)
 
@@ -288,6 +302,41 @@ class ASTModel(nn.Module):
         x = self.mlp_head(x)
         return x
 
+    def get_intermediate_layers(self, x, layer_idx):
+        """Extract Unmasked Features from Transformer Layer 'layer_idx'"""
+        # Pass through patch embedding
+        x = self.v.patch_embed(x)
+        B = x.shape[0]
+        # Add cls and dist tokens
+        cls_tokens = self.v.cls_token.expand(B, -1, -1)
+        dist_token = self.v.dist_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, dist_token, x), dim=1)
+        # Add positional embeddings
+        x = x + self.v.pos_embed
+        # Apply dropout
+        x = self.v.pos_drop(x)
+        # Pass through Transformer blocks up to layer_idx
+        for i, blk in enumerate(self.v.blocks):
+            x = blk(x)
+            if i == layer_idx:
+                break
+        return x[:, self.cls_token_num:, :]
+
+    @torch.no_grad()
+    def get_cluster_labels(self, x):
+        """Helper for Dataloader Labeling"""
+        # Run pass to get intermediate features
+        target_features = self.get_intermediate_layers(x, self.target_layer_idx)
+        # Match to centroids
+        flat_features = target_features.contiguous().view(-1, self.original_embedding_dim)
+        flat_features = F.normalize(flat_features, p=2, dim=1)
+        centroids = F.normalize(self.cluster_centroids, p=2, dim=1)
+        # Cosine Similarity -> Argmax
+        similarity = torch.matmul(flat_features, centroids.transpose(0, 1))
+        flat_target_ids = torch.argmax(similarity, dim=1)
+        # Reshape [B, N_patches] and return
+        return flat_target_ids.view(x.shape[0], -1).cpu()
+    
     # General model body: handles patch embedding, masking, and transformer encoding
     def _masked_encoding_body(self, x, mask_patch, cluster):
         # Unfold input to get raw patches (ground truth targets)
@@ -387,7 +436,6 @@ class ASTModel(nn.Module):
 
             return pred_vis, masked_vis
 
-
     def _mpg_head(self, x, input_patches, mask_index, mask_patch):
         B = x.shape[0]
         pred = torch.empty((B, mask_patch, self.fshape * self.tshape), device=x.device).float()
@@ -403,6 +451,27 @@ class ASTModel(nn.Module):
         mse = torch.mean((pred - target) ** 2)
         return mse
 
+    def _mhb_head(self, x, target_ids, mask_index, mask_patch):
+        """
+        Calculates the Cross Entropy loss between predicted logits and target cluster IDs.
+        """
+        B = x.shape[0]
+        
+        # Select the masked tokens from the transformer output (Student Prediction)
+        masked_output = torch.empty((B, mask_patch, self.original_embedding_dim), device=x.device)
+        # Select the corresponding target IDs (Ground Truth)
+        batch_target_ids = torch.empty((B, mask_patch), device=x.device, dtype=torch.long)
+        
+        for i in range(B):
+            masked_output[i] = x[i, mask_index[i] + self.cls_token_num, :]
+            batch_target_ids[i] = target_ids[i, mask_index[i]]
+
+        # Predict Cluster Logits
+        logits = self.mhb_pred_layer(masked_output)
+        
+        # Calculate Loss
+        return F.cross_entropy(logits.view(-1, self.num_clusters), batch_target_ids.view(-1))
+    
     # Masked patch pretraining with discriminative objective
     def mpc(self, x, mask_patch, cluster, show_mask=False):
         """Masked patch pretraining with discriminative objective"""
@@ -413,7 +482,6 @@ class ASTModel(nn.Module):
         nce, acc = self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask)
         return nce, acc
         
-
     # Masked patch pretraining with generative objective
     def mpg(self, x, mask_patch, cluster):
         """Masked patch pretraining with generative objective"""
@@ -436,8 +504,28 @@ class ASTModel(nn.Module):
         combined_loss = nce + (mpg_weight * mse)
         return combined_loss, acc
     
+    def mpmhb(self, x, mask_patch, cluster, target_ids=None, args=None):
+        """Masked patch joint pretraining with MelHuBERT objective, discriminative and generative objective."""
+        # General Model Body
+        x_masked, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
+        
+        # Run MPC and MPG losses
+        acc_mpc, loss_mpc = self._mpc_head(x_masked, input_patches, mask_index, mask_patch, show_mask=False)
+        loss_mpg = self._mpg_head(x_masked, input_patches, mask_index, mask_patch)
+        
+        # Run MHB loss
+        if target_ids is None:
+            raise ValueError("target_ids must be provided for mpmhb")
+        loss_mhb = self._mhb_head(x_masked, target_ids, mask_index, mask_patch)
+        
+        # Weighted sum of losses
+        mpg_weight = args['mpg_weight'] if (args and 'mpg_weight' in args) else 10.0
+        mhb_weight = args['mhb_weight'] if (args and 'mhb_weight' in args) else 1.0
+        total_loss = loss_mpc + (mpg_weight * loss_mpg) + (mhb_weight * loss_mhb)
+        
+        return total_loss, acc_mpc, loss_mpg, loss_mhb
     
-    def forward(self, x, task, cluster=True, mask_patch=400, args=None):
+    def forward(self, x, task, cluster=True, mask_patch=400, target_ids=None, args=None):
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
         x = x.unsqueeze(1)
         x = x.transpose(2, 3)
@@ -461,6 +549,8 @@ class ASTModel(nn.Module):
             else:
                 mpg_weight = 10
             return self.mpj(x, mask_patch=mask_patch, cluster=cluster, mpg_weight=mpg_weight)
+        elif task == 'pretrain_mpmhb':
+             return self.mpmhb(x, mask_patch=mask_patch, cluster=cluster, target_ids=target_ids, args=args)
         elif task == 'visualize_mask':
             return self.mpc(x, mask_patch=mask_patch, cluster=cluster, show_mask=True)
         else:
