@@ -263,8 +263,9 @@ def trainmask(audio_model, train_loader, test_loader, args):
                     torch.save(audio_model.state_dict(), "%s/models/best_audio_model.pth" % (exp_dir))
 
                 torch.save(audio_model.state_dict(), "%s/models/audio_model.%d.pth" % (exp_dir, equ_epoch))
-                if len(train_loader.dataset) > 2e5:
-                    torch.save(optimizer.state_dict(), "%s/models/optim_state.pth" % (exp_dir))
+                # if len(train_loader.dataset) > 2e5:
+                # Save optimiser state for all dataset sizes
+                torch.save(optimizer.state_dict(), "%s/models/optim_state.pth" % (exp_dir))
 
                 # if the task is generation, stop after eval mse loss stop improve
                 if args.task == 'pretrain_mpg':
