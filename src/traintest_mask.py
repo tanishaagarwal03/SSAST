@@ -191,7 +191,7 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 loss2 = audio_model(audio_input, 'pretrain_mpg', mask_patch=args.mask_patch, cluster=cluster)
                 loss2 = loss2.mean()
                 loss = loss1 + 10 * loss2
-            if args.task == 'pretrain_mpmhb':
+            elif args.task == 'pretrain_mpmhb':
                 loss_args = {'mpg_weight': args.mpg_weight, 'mhb_weight': args.mhb_weight}
                 
                 # Move targets to GPU (targets are integers)
