@@ -163,6 +163,12 @@ class ASTModel(nn.Module):
             if load_pretrained_mdl_path == None:
                 raise ValueError('Please set load_pretrained_mdl_path to load a pretrained models.')
             sd = torch.load(load_pretrained_mdl_path, map_location=device)
+            # Remove cluster centroids as they are unused to avoid shape mismatch
+            if 'module.cluster_centroids' in sd:
+                print("Removing unused cluster_centroids from checkpoint to avoid shape mismatch.")
+                del sd['module.cluster_centroids']
+            if 'cluster_centroids' in sd:
+                del sd['cluster_centroids']
             # get the fshape and tshape, input_fdim and input_tdim in the pretraining stage
             try:
                 p_fshape, p_tshape = sd['module.v.patch_embed.proj.weight'].shape[2], sd['module.v.patch_embed.proj.weight'].shape[3]
