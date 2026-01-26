@@ -44,8 +44,9 @@ mask_patch=400
 
 # MHB Arguments
 num_clusters=512        # Number of K-means clusters
-mhb_weight=1.0          # Weight for the cluster ID prediction loss
-mpg_weight=10.0         # Weight for the reconstruction loss
+mpmhb_weight=0.0        # Weight for the cluster ID prediction loss
+mpg_weight=0.0          # Weight for the reconstruction loss
+mpc_weight=0.0          # Weight for the contrastive loss
 target_layer_idx=-1     # Teacher layer (Tiny model has 12 layers, 6 is middle). -1 indicates using raw patch features
 cluster_update_freq=-1   # Re-label dataset every n epochs. If -1, only label once at start
 
@@ -93,5 +94,5 @@ CUDA_CACHE_DISABLE=1 python -W ignore ../run.py --dataset ${dataset} \
 --dataset_mean ${dataset_mean} --dataset_std ${dataset_std} --target_length ${target_length} --num_mel_bins ${num_mel_bins} \
 --model_size ${model_size} --mask_patch ${mask_patch} --n-print-steps 100 \
 --task ${task} --lr_patience ${lr_patience} --epoch_iter 800 \
---num_clusters ${num_clusters} --mhb_weight ${mhb_weight} --mpg_weight ${mpg_weight} \
+--num_clusters ${num_clusters} --mpmhb_weight ${mpmhb_weight} --mpg_weight ${mpg_weight} --mpc_weight ${mpc_weight} \
 --target_layer_idx ${target_layer_idx} --cluster_update_freq ${cluster_update_freq} --num-workers ${num_workers}
