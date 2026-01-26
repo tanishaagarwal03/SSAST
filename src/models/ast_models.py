@@ -552,9 +552,13 @@ class ASTModel(nn.Module):
         loss_mhb = self._mhb_head(x_masked, target_ids, mask_index, mask_patch)
         
         # Weighted sum of losses
-        mpg_weight = args['mpg_weight'] if (args and 'mpg_weight' in args) else 10.0
-        mhb_weight = args['mhb_weight'] if (args and 'mhb_weight' in args) else 1.0
-        total_loss = loss_mpc + (mpg_weight * loss_mpg) + (mhb_weight * loss_mhb)
+        # mpg_weight = args['mpg_weight'] if (args and 'mpg_weight' in args) else 10
+        # mhb_weight = args['mhb_weight'] if (args and 'mhb_weight' in args) else 1.0
+        if args is None:
+            raise ValueError("args must be provided for mpmhb to specify mpg_weight and mhb_weight")
+        if args is None or (args['mpg_weight'] == 0 and args['mpmhb_weight'] == 0 and args['mpc_weight'] == 0):
+            raise ValueError("At least one of mpg_weight, mhb_weight, or mpc_weight must be non-zero")
+        total_loss = (args['mpc_weight'] * loss_mpc) + (args['mpg_weight'] * loss_mpg) + (args['mpmhb_weight'] * loss_mhb)
         
         return total_loss, acc_mpc, loss_mpg, loss_mhb
     

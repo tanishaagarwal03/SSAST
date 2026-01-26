@@ -75,8 +75,9 @@ parser.add_argument("--epoch_iter", type=int, default=2000, help="for pretrainin
 
 # MHB Hyperparameters
 parser.add_argument("--num_clusters", type=int, default=512, help="Number of clusters (K)")
-parser.add_argument("--mhb_weight", type=float, default=1.0, help="Weight for clustering loss")
-parser.add_argument("--mpg_weight", type=float, default=10.0, help="Weight for generation loss")
+parser.add_argument("--mpmhb_weight", type=float, default=0.0, help="Weight for clustering loss")
+parser.add_argument("--mpg_weight", type=float, default=0.0, help="Weight for generation loss")
+parser.add_argument("--mpc_weight", type=float, default=0.0, help="Weight for generation loss")
 parser.add_argument("--target_layer_idx", type=int, default=6, help="Transformer layer to use for targets (0-11)")
 parser.add_argument("--cluster_update_freq", type=int, default=5, help="Update centroids/labels every N epochs")
 
