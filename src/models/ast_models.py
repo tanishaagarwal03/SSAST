@@ -558,9 +558,9 @@ class ASTModel(nn.Module):
             raise ValueError("args must be provided for mpmhb to specify mpg_weight and mhb_weight")
         if args is None or (args['mpg_weight'] == 0 and args['mpmhb_weight'] == 0 and args['mpc_weight'] == 0):
             raise ValueError("At least one of mpg_weight, mhb_weight, or mpc_weight must be non-zero")
-        total_loss = (args['mpc_weight'] * loss_mpc) + (args['mpg_weight'] * loss_mpg) + (args['mpmhb_weight'] * loss_mhb)
+        total_loss = (args['mpg_weight'] * loss_mpg) + (args['mpc_weight'] * loss_mpc) + (args['mpmhb_weight'] * loss_mhb)
         
-        return total_loss, acc_mpc, loss_mpg, loss_mhb
+        return total_loss, acc_mpc, loss_mpg, loss_mpc, loss_mhb
     
     def forward(self, x, task, cluster=True, mask_patch=400, target_ids=None, args=None):
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
