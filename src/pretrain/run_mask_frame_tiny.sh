@@ -83,7 +83,11 @@ mixup=0
 
 num_workers=8
 
-exp_dir=./exp/mask01-${model_size}-f${fshape}-t${tshape}-b$batch_size-lr${lr}-m${mask_patch}-e${epoch}-${task}-${dataset}
+if [ "$task" = "pretrain_mpmhb" ]; then
+    exp_dir=./exp/mask01-${model_size}-f${fshape}-t${tshape}-b$batch_size-lr${lr}-m${mask_patch}-e${epoch}-${task}-${dataset}-mpmhb${mpmhb_weight}-mpg${mpg_weight}-mpc${mpc_weight}
+else
+    exp_dir=./exp/mask01-${model_size}-f${fshape}-t${tshape}-b$batch_size-lr${lr}-m${mask_patch}-e${epoch}-${task}-${dataset}
+fi 
 
 CUDA_CACHE_DISABLE=1 python -W ignore ../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${te_data} --exp-dir $exp_dir \
