@@ -192,13 +192,13 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 loss2 = loss2.mean()
                 loss = loss1 + 10 * loss2
             elif args.task == 'pretrain_mpmhb':
-                loss_args = {'mpg_weight': args.mpg_weight, 'mhb_weight': args.mpmhb_weight, 'mpc_weight': args.mpc_weight}
+                loss_args = {'mpg_weight': args.mpg_weight, 'mpmhb_weight': args.mpmhb_weight, 'mpc_weight': args.mpc_weight}
                 
                 # Move targets to GPU (targets are integers)
                 cluster_target = cluster_target.to(device, non_blocking=True)
                 
                 # Pass 'target_ids' explicitly to the model
-                total_loss, acc_mpc, loss_mpg, loss_mpc, loss_mhb = audio_model(
+                total_loss, acc_mpc, loss_mpg, loss_mpc, loss_mpmhb = audio_model(
                     audio_input, args.task, mask_patch=args.mask_patch, 
                     cluster=cluster, target_ids=cluster_target, args=loss_args
                 )
@@ -238,7 +238,7 @@ def trainmask(audio_model, train_loader, test_loader, args):
                     print("training diverged...")
                     return
             if print_step and args.task == 'pretrain_mpmhb':
-                print(f'   >> MPG: {loss_mpg.mean().item():.3f}, MPC: {loss_mpc.mean().item():.3f}, MHB: {loss_mhb.mean().item():.3f}')
+                print(f'   >> MPG: {loss_mpg.mean().item():.3f}, MPC: {loss_mpc.mean().item():.3f}, MPMHB: {loss_mpmhb.mean().item():.3f}')
 
             end_time = time.time()
             global_step += 1

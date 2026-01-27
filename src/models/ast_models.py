@@ -484,7 +484,7 @@ class ASTModel(nn.Module):
         mse = torch.mean((pred - target) ** 2)
         return mse
 
-    def _mhb_head(self, x, target_ids, mask_index, mask_patch):
+    def _mpmhb_head(self, x, target_ids, mask_index, mask_patch):
         """
         Calculates the Cross Entropy loss between predicted logits and target cluster IDs.
         """
@@ -539,28 +539,39 @@ class ASTModel(nn.Module):
     
     def mpmhb(self, x, mask_patch, cluster, target_ids=None, args=None):
         """Masked patch joint pretraining with MelHuBERT objective, discriminative and generative objective."""
+        if args is None:
+            raise ValueError("args must be provided for mpmhb to specify mpg_weight and mpmhb_weight")
+        if args['mpg_weight'] == 0 and args['mpmhb_weight'] == 0 and args['mpc_weight'] == 0:
+            raise ValueError("At least one of mpg_weight, mhb_weight, or mpc_weight must be non-zero")
+        
         # General Model Body
         x_masked, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
         
-        # Run MPC and MPG losses
-        acc_mpc, loss_mpc = self._mpc_head(x_masked, input_patches, mask_index, mask_patch, show_mask=False)
-        loss_mpg = self._mpg_head(x_masked, input_patches, mask_index, mask_patch)
+        # Run MPC loss
+        if args["mpc_weight"] != 0:
+            acc_mpc, loss_mpc = self._mpc_head(x_masked, input_patches, mask_index, mask_patch, show_mask=False)
+        else:
+            acc_mpc = torch.tensor(0.0, device=x.device)
+            loss_mpc = torch.tensor(0.0, device=x.device)
+            
+        # Run MPG loss
+        if args["mpg_weight"] != 0:
+            loss_mpg = self._mpg_head(x_masked, input_patches, mask_index, mask_patch)
+        else:
+            loss_mpg = torch.tensor(0.0, device=x.device)
         
-        # Run MHB loss
-        if target_ids is None:
+        # Run MPMHB loss
+        if target_ids is None and args["mpmhb_weight"] != 0:
             raise ValueError("target_ids must be provided for mpmhb")
-        loss_mhb = self._mhb_head(x_masked, target_ids, mask_index, mask_patch)
+        if args["mpmhb_weight"] != 0:
+            loss_mpmhb = self._mpmhb_head(x_masked, target_ids, mask_index, mask_patch)
+        else:
+            loss_mpmhb = torch.tensor(0.0, device=x.device)
         
         # Weighted sum of losses
-        # mpg_weight = args['mpg_weight'] if (args and 'mpg_weight' in args) else 10
-        # mhb_weight = args['mhb_weight'] if (args and 'mhb_weight' in args) else 1.0
-        if args is None:
-            raise ValueError("args must be provided for mpmhb to specify mpg_weight and mhb_weight")
-        if args is None or (args['mpg_weight'] == 0 and args['mpmhb_weight'] == 0 and args['mpc_weight'] == 0):
-            raise ValueError("At least one of mpg_weight, mhb_weight, or mpc_weight must be non-zero")
-        total_loss = (args['mpg_weight'] * loss_mpg) + (args['mpc_weight'] * loss_mpc) + (args['mpmhb_weight'] * loss_mhb)
+        total_loss = (args['mpg_weight'] * loss_mpg) + (args['mpc_weight'] * loss_mpc) + (args['mpmhb_weight'] * loss_mpmhb)
         
-        return total_loss, acc_mpc, loss_mpg, loss_mpc, loss_mhb
+        return total_loss, acc_mpc, loss_mpg, loss_mpc, loss_mpmhb
     
     def forward(self, x, task, cluster=True, mask_patch=400, target_ids=None, args=None):
         # expect input x = (batch_size, time_frame_num, frequency_bins), e.g., (12, 1024, 128)
@@ -587,7 +598,7 @@ class ASTModel(nn.Module):
                 mpg_weight = 10
             return self.mpj(x, mask_patch=mask_patch, cluster=cluster, mpg_weight=mpg_weight)
         elif task == 'pretrain_mpmhb':
-             return self.mpmhb(x, mask_patch=mask_patch, cluster=cluster, target_ids=target_ids, args=args)
+            return self.mpmhb(x, mask_patch=mask_patch, cluster=cluster, target_ids=target_ids, args=args)
         elif task == 'visualize_mask':
             return self.mpc(x, mask_patch=mask_patch, cluster=cluster, show_mask=True)
         else:
