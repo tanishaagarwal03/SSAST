@@ -18,3 +18,4 @@ src/finetune/superb/s3prl-master/*
 .idea/*venvssast/
 /venvssast/
 *.tar.gz
+src/finetune/superb/datasets/*
