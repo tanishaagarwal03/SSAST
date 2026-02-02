@@ -3,8 +3,7 @@
 runner:
   total_steps: 40000
   gradient_clipping: 1
-  gradient_accumulate_steps: 8 #4
-
+  gradient_accumulate_steps: 8
   log_step: 50
   eval_step: 500
   save_step: 1000
@@ -18,17 +17,12 @@ optimizer:
   torch_optim_name: Adam
   lr: 1.0e-4
 
-# # comment the whole scheduler config block to disable learning rate scheduling
-# scheduler:
-#   name: linear_schedule_with_warmup
-#   num_warmup_steps: 5000
-
 downstream_expert:
   datarc:
-    file_path: /data/sls/temp/clai24/data/VoxCeleb1
+    file_path: ./data/voxceleb1
     meta_data: ./downstream/voxceleb1/veri_test_class.txt
     num_workers: 12
-    train_batch_size: 4 #8
+    train_batch_size: 4
     eval_batch_size: 1
     max_timestep: 128000
 
