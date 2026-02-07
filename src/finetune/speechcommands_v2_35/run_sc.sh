@@ -1,38 +1,61 @@
 #!/bin/bash
-##SBATCH -p sm
-##SBATCH -x sls-sm-1,sls-2080-[1,3],sls-1080-[2,3],sls-sm-5
-#SBATCH -p gpu
-#SBATCH -x sls-titan-[0-2]
-#SBATCH --gres=gpu:2
-#SBATCH -c 4
-#SBATCH -n 1
-#SBATCH --mem=30000
-#SBATCH --job-name="ast-sc"
+#SBATCH --job-name="ssast-speechcommandsV2"
+#SBATCH --nodes=1
+#SBATCH --gres=gpu:1
+#SBATCH --exclude=damnii[07-12],landonia[01-08,21-25]
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=16G
 #SBATCH --output=./slurm_log/log_%j.txt
 
 set -x
 # comment this line if not running on sls cluster
-. /data/sls/scratch/share-201907/slstoolchainrc
+# . /data/sls/scratch/share-201907/slstoolchainrc
+. /home/htang2/toolchain-20251006/toolchain.rc
 source ../../../venvssast/bin/activate
 export TORCH_HOME=../../pretrained_models
 mkdir -p ./exp
 
-# prep speechcommands dataset and download the pretrained model
-if [ -e data/datafiles ]
-then
-    echo "speechcommands already downloaded and processed."
+AFS_ROOT="/home/s2283874/ssast/datasets/speech_commands_v0.02"
+# Use SLURM_TMPDIR if available, otherwise a temp path
+SCRATCH_ROOT="/disk/scratch/${USER}/speech_commands_v0.02"
+
+echo "AFS Path: $AFS_ROOT"
+echo "Scratch Path: $SCRATCH_ROOT"
+
+# Prepare AFS Storage
+mkdir -p $AFS_ROOT
+if [ ! -f "${AFS_ROOT}/speech_commands_v0.02.tar.gz" ]; then
+    echo "Downloading dataset to AFS..."
+    wget 'https://storage.googleapis.com/download.tensorflow.org/data/speech_commands_v0.02.tar.gz' -O "${AFS_ROOT}/speech_commands_v0.02.tar.gz"
 else
-    python prep_sc.py
-fi
-if [ -e SSAST-Base-Frame-400.pth ]
-then
-    echo "pretrained model already downloaded."
-else
-    wget https://www.dropbox.com/s/nx6nl4d4bl71sm8/SSAST-Base-Frame-400.pth?dl=1 -O SSAST-Base-Frame-400.pth
+    echo "Dataset found on AFS."
 fi
 
-pretrain_exp=
-pretrain_model=SSAST-Base-Frame-400
+# Copy and Extract to Scratch
+echo "Extracting data to Scratch..."
+mkdir -p $SCRATCH_ROOT
+# Extract directly from AFS file to Scratch folder
+tar -xzf "${AFS_ROOT}/speech_commands_v0.02.tar.gz" -C "$SCRATCH_ROOT"
+
+# 4. Prepare Datafiles (Always run this to update paths in JSONs)
+# Note: We removed the 'if exists' check because paths change per job
+echo "Generating JSON files pointing to Scratch..."
+# Clear old datafiles to ensure fresh generation
+rm -rf ./data/datafiles 
+python prep_sc.py --dataset_path $SCRATCH_ROOT
+
+
+# if [ -e SSAST-Base-Frame-400.pth ]
+# then
+#     echo "pretrained model already downloaded."
+# else
+#     wget https://www.dropbox.com/s/nx6nl4d4bl71sm8/SSAST-Base-Frame-400.pth?dl=1 -O SSAST-Base-Frame-400.pth
+# fi
+
+pretrain_exp=./../../pretrain/exp/
+# pretrain_model=mask01-tiny-f16-t16-b64-lr5e-4-m400-pretrain_mpmhb-librispeech360
+pretrain_model="$1"
+pretrain_path=./${pretrain_exp}/${pretrain_model}/models/best_audio_model.pth
 
 dataset=speechcommands
 dataset_mean=-6.845978
@@ -56,10 +79,9 @@ fstride=128
 tstride=1
 
 task=ft_avgtok
-model_size=base
+model_size="${2:-tiny}"
 head_lr=1
 
-pretrain_path=./${pretrain_exp}/${pretrain_model}.pth
 exp_dir=./exp/test01-${dataset}-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-$pretrain_exp-${pretrain_model}-${head_lr}x-noise${noise}
 
 CUDA_CACHE_DISABLE=1 python -W ignore ../../run.py --dataset ${dataset} \

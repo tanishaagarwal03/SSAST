@@ -10,7 +10,7 @@ set -x
 
 # --- 1. SETUP ENVIRONMENT ---
 # MODIFY THIS: Point to your actual virtualenv
-source ../../../venvssast/bin/activate
+source ../../../../venvssast/bin/activate
 export TORCH_HOME=../../pretrained_models
 
 # --- 2. UNZIP DATA TO SCRATCH ---
@@ -38,7 +38,7 @@ expname=ks_${mdl}_${lr}
 expdir=./exp/$expname
 mkdir -p $expdir
 
-python3 run_downstream.py -m train \
+python3 ../run_downstream.py -m train \
     --expdir ${expdir} \
     -n speech_commands \
     -u $mdl \
