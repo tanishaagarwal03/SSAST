@@ -41,8 +41,8 @@ def get_transcripts(data_root):
                     wav_path = os.path.join(chapter_path, file_id + ".flac")
                     if os.path.exists(wav_path):
                         # Get duration for filtering
-                        info = torchaudio.info(wav_path)
-                        duration = info.num_frames / info.sample_rate
+                        wav, sr = torchaudio.load(wav_path)
+                        duration = wav.shape[1] / sr
                         
                         samples.append({
                             "wav": wav_path,
