@@ -86,8 +86,8 @@ timem=48
 mixup=0.5
 epoch=30
 batch_size=24       # Reduced batch size as target_length 1024 consumes more VRAM
-fshape=16
-tshape=16
+fshape=128
+tshape=2
 fstride=10          # Overlap for fine-tuning
 tstride=10
 
