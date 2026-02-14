@@ -57,7 +57,7 @@ class ASTModel(nn.Module):
                  fshape=128, tshape=2, fstride=128, tstride=2,
                  input_fdim=128, input_tdim=1024, model_size='base',
                  pretrain_stage=True, load_pretrained_mdl_path=None,
-                 num_clusters=512, target_layer_idx=6):
+                 num_clusters=512, target_layer_idx=6, vocab_size=30):
 
         super(ASTModel, self).__init__()
         assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
@@ -194,6 +194,20 @@ class ASTModel(nn.Module):
             # mlp head for fine-tuning
             self.mlp_head = nn.Sequential(nn.LayerNorm(self.original_embedding_dim),
                                           nn.Linear(self.original_embedding_dim, label_dim))
+            
+            # ASR head for fine-tuning
+            self.f_dim_out = (input_fdim - fshape) // fstride + 1
+            self.t_dim_out = (input_tdim - tshape) // tstride + 1
+            lstm_input_dim = self.original_embedding_dim * self.f_dim_out
+            
+            self.lstm = nn.LSTM(
+                input_size=lstm_input_dim,
+                hidden_size=768,
+                num_layers=2,
+                batch_first=True,
+                bidirectional=True
+            )
+            self.asr_head = nn.Linear(768 * 2, vocab_size)
 
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim, fshape, tshape)
             # patch array dimension during pretraining
@@ -316,6 +330,36 @@ class ASTModel(nn.Module):
             x = x[:, 0]
         x = self.mlp_head(x)
         return x
+
+    def finetuningasr(self, x):
+        x = x.unsqueeze(1).transpose(2, 3)
+        x = self.v.patch_embed(x)
+        B, N, D = x.shape
+        
+        # Add tokens & Pos Embed
+        if self.cls_token_num == 2:
+            cls_tokens = self.v.cls_token.expand(B, -1, -1)
+            dist_token = self.v.dist_token.expand(B, -1, -1)
+            x = torch.cat((cls_tokens, dist_token, x), dim=1)
+        else:
+            cls_tokens = self.v.cls_token.expand(B, -1, -1)
+            x = torch.cat((cls_tokens, x), dim=1)
+        x = x + self.v.pos_embed
+        x = self.v.pos_drop(x)
+        
+        for blk in self.v.blocks: x = blk(x)
+        x = self.v.norm(x)
+        
+        # Reshape for LSTM
+        x = x[:, self.cls_token_num:, :] # Remove CLS
+        x = x.transpose(1, 2).view(B, D, self.f_dim_out, self.t_dim_out)
+        x = x.permute(0, 3, 2, 1).contiguous() # [Batch, Time, Freq, Dim]
+        x = x.view(B, self.t_dim_out, self.f_dim_out * D)
+        
+        self.lstm.flatten_parameters()
+        x, _ = self.lstm(x)
+        return self.asr_head(x)
+        
 
     def get_intermediate_layers(self, x, layer_idx):
         """
@@ -585,6 +629,8 @@ class ASTModel(nn.Module):
         # alternatively, use the [cls] token output as clip-level representation.
         elif task == 'ft_cls':
             return self.finetuningcls(x)
+        elif task == 'ft_asr':
+            return self.finetuningasr(x)
         # pretraining, masked patch classification (discriminative objective)
         elif task == 'pretrain_mpc':
             return self.mpc(x, mask_patch=mask_patch, cluster=cluster)

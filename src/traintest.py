@@ -15,7 +15,20 @@ import torch
 from torch import nn
 import numpy as np
 import pickle
+import json
 from torch.cuda.amp import autocast,GradScaler
+
+def calculate_wer(hyp, ref):
+    """Simple WER calculation"""
+    h, r = hyp.split(), ref.split()
+    d = np.zeros((len(r)+1, len(h)+1), dtype=np.uint8)
+    for i in range(len(r)+1): d[i][0] = i
+    for j in range(len(h)+1): d[0][j] = j
+    for i in range(1, len(r)+1):
+        for j in range(1, len(h)+1):
+            if r[i-1] == h[j-1]: d[i][j] = d[i-1][j-1]
+            else: d[i][j] = min(d[i-1][j], d[i][j-1], d[i-1][j-1]) + 1
+    return d[len(r)][len(h)] / float(len(r)) if len(r) > 0 else 1.0
 
 def train(audio_model, train_loader, test_loader, args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -103,6 +116,10 @@ def train(audio_model, train_loader, test_loader, args):
         loss_fn = nn.BCEWithLogitsLoss()
     elif args.loss == 'CE':
         loss_fn = nn.CrossEntropyLoss()
+    elif args.loss == 'CTC':
+        loss_fn = nn.CTCLoss(blank=0, zero_infinity=True)
+    else:
+        raise ValueError('unknown loss function, loss function should be in [BCE, CE, CTC]')
     args.loss_fn = loss_fn
 
     print('now training with {:s}, main metrics: {:s}, loss function: {:s}, learning rate scheduler: {:s}'.format(str(args.dataset), str(main_metrics), str(loss_fn), str(scheduler)))
@@ -122,7 +139,18 @@ def train(audio_model, train_loader, test_loader, args):
         print(datetime.datetime.now())
         print("current #epochs=%s, #steps=%s" % (epoch, global_step))
 
-        for i, (audio_input, labels, _) in enumerate(train_loader):
+        for i, batch_data in enumerate(train_loader):
+            if args.task == 'ft_asr':
+                audio_input, labels, input_len, label_len = batch_data
+                input_len = input_len.to(device, non_blocking=True)
+                label_len = label_len.to(device, non_blocking=True)
+                # Scale input_len to match AST patch output dimensions
+                # Formula: (Input - Kernel) / Stride + 1
+                input_len = (input_len - args.tshape) // args.tstride + 1
+                # Ensure lengths are at least 1
+                input_len = torch.clamp(input_len, min=1)
+            else:
+                audio_input, labels, _ = batch_data
 
             B = audio_input.size(0)
             audio_input = audio_input.to(device, non_blocking=True)
@@ -140,7 +168,10 @@ def train(audio_model, train_loader, test_loader, args):
                     print('warm-up learning rate is {:f}'.format(param_group['lr']))
 
             audio_output = audio_model(audio_input, args.task)
-            if isinstance(loss_fn, torch.nn.CrossEntropyLoss):
+            if args.loss == 'CTC':
+                # CTC expects [Time, Batch, Vocab]
+                loss = loss_fn(audio_output.log_softmax(2).transpose(0,1), labels, input_len, label_len)
+            elif isinstance(loss_fn, torch.nn.CrossEntropyLoss):
                 loss = loss_fn(audio_output, torch.argmax(labels.long(), axis=1))
             else:
                 loss = loss_fn(audio_output, labels)
@@ -184,37 +215,49 @@ def train(audio_model, train_loader, test_loader, args):
         print('start validation')
         stats, valid_loss = validate(audio_model, test_loader, args, epoch)
 
-        # ensemble results
-        cum_stats = validate_ensemble(args, epoch)
-        cum_mAP = np.mean([stat['AP'] for stat in cum_stats])
-        cum_mAUC = np.mean([stat['auc'] for stat in cum_stats])
-        cum_acc = cum_stats[0]['acc']
-
-        mAP = np.mean([stat['AP'] for stat in stats])
-        mAUC = np.mean([stat['auc'] for stat in stats])
-        acc = stats[0]['acc']
-
-        middle_ps = [stat['precisions'][int(len(stat['precisions'])/2)] for stat in stats]
-        middle_rs = [stat['recalls'][int(len(stat['recalls'])/2)] for stat in stats]
-        average_precision = np.mean(middle_ps)
-        average_recall = np.mean(middle_rs)
-
-        if main_metrics == 'mAP':
-            print("mAP: {:.6f}".format(mAP))
+        if args.task != 'ft_asr':
+            # ensemble results
+            cum_stats = validate_ensemble(args, epoch)
+            cum_mAP = np.mean([stat['AP'] for stat in cum_stats])
+            cum_mAUC = np.mean([stat['auc'] for stat in cum_stats])
+            cum_acc = cum_stats[0]['acc']
         else:
-            print("acc: {:.6f}".format(acc))
-        print("AUC: {:.6f}".format(mAUC))
-        print("Avg Precision: {:.6f}".format(average_precision))
-        print("Avg Recall: {:.6f}".format(average_recall))
-        print("d_prime: {:.6f}".format(d_prime(mAUC)))
-        print("train_loss: {:.6f}".format(loss_meter.avg))
-        print("valid_loss: {:.6f}".format(valid_loss))
+            cum_mAP, cum_mAUC, cum_acc = 0, 0, 0
+            
+        if args.task != 'ft_asr':
+            mAP = np.mean([stat['AP'] for stat in stats])
+            mAUC = np.mean([stat['auc'] for stat in stats])
+            acc = stats[0]['acc']
 
-        if main_metrics == 'mAP':
-            result[epoch-1, :] = [mAP, mAUC, average_precision, average_recall, d_prime(mAUC), loss_meter.avg, valid_loss, cum_mAP, cum_mAUC, optimizer.param_groups[0]['lr']]
+            middle_ps = [stat['precisions'][int(len(stat['precisions'])/2)] for stat in stats]
+            middle_rs = [stat['recalls'][int(len(stat['recalls'])/2)] for stat in stats]
+            average_precision = np.mean(middle_ps)
+            average_recall = np.mean(middle_rs)
+
+            if main_metrics == 'mAP':
+                print("mAP: {:.6f}".format(mAP))
+            else:
+                print("acc: {:.6f}".format(acc))
+            print("AUC: {:.6f}".format(mAUC))
+            print("Avg Precision: {:.6f}".format(average_precision))
+            print("Avg Recall: {:.6f}".format(average_recall))
+            print("d_prime: {:.6f}".format(d_prime(mAUC)))
+            print("train_loss: {:.6f}".format(loss_meter.avg))
+            print("valid_loss: {:.6f}".format(valid_loss))
+
+            if main_metrics == 'mAP':
+                result[epoch-1, :] = [mAP, mAUC, average_precision, average_recall, d_prime(mAUC), loss_meter.avg, valid_loss, cum_mAP, cum_mAUC, optimizer.param_groups[0]['lr']]
+            else:
+                result[epoch-1, :] = [acc, mAUC, average_precision, average_recall, d_prime(mAUC), loss_meter.avg, valid_loss, cum_acc, cum_mAUC, optimizer.param_groups[0]['lr']]
+            np.savetxt(exp_dir + '/result.csv', result, delimiter=',')
         else:
-            result[epoch-1, :] = [acc, mAUC, average_precision, average_recall, d_prime(mAUC), loss_meter.avg, valid_loss, cum_acc, cum_mAUC, optimizer.param_groups[0]['lr']]
-        np.savetxt(exp_dir + '/result.csv', result, delimiter=',')
+            print("WER: {:.6f}".format(stats[0]['wer']))
+            print("train_loss: {:.6f}".format(loss_meter.avg))
+            print("valid_loss: {:.6f}".format(valid_loss))
+            
+            # Save simple result CSV for ASR
+            result[epoch-1, :] = [stats[0]['wer'], loss_meter.avg, valid_loss, 0, 0, 0, 0, 0, 0, optimizer.param_groups[0]['lr']]
+            np.savetxt(exp_dir + '/result.csv', result, delimiter=',')
         print('validation finished')
 
         if mAP > best_mAP:
@@ -303,42 +346,107 @@ def validate(audio_model, val_loader, args, epoch):
     A_predictions = []
     A_targets = []
     A_loss = []
+    
+    asr_results = []
+    total_wer, total_samples = 0, 0
+    
+    idx2char = {}
+    if args.metrics == 'wer':
+        with open(args.label_csv, 'r') as f: # args.label_csv is vocab.json for ASR
+            vocab_map = json.load(f)
+            idx2char = {v:k for k,v in vocab_map.items()}
+    
     with torch.no_grad():
-        for i, (audio_input, labels, _) in enumerate(val_loader):
-            audio_input = audio_input.to(device)
-
-            # compute output
-            audio_output = audio_model(audio_input, args.task)
-            audio_output = torch.sigmoid(audio_output)
-            predictions = audio_output.to('cpu').detach()
-
-            A_predictions.append(predictions)
-            A_targets.append(labels)
-
-            # compute the loss
-            labels = labels.to(device)
-            if isinstance(args.loss_fn, torch.nn.CrossEntropyLoss):
-                loss = args.loss_fn(audio_output, torch.argmax(labels.long(), axis=1))
+        for i, batch_data in enumerate(val_loader):
+            if args.task == 'ft_asr':
+                audio_input, labels, input_len, label_len = batch_data
+                input_len = input_len.to(device, non_blocking=True)
+                label_len = label_len.to(device, non_blocking=True)
+                # Scale input_len to match AST patch output dimensions
+                # Formula: (Input - Kernel) / Stride + 1
+                input_len = (input_len - args.tshape) // args.tstride + 1
+                # Ensure lengths are at least 1
+                input_len = torch.clamp(input_len, min=1)
             else:
-                loss = args.loss_fn(audio_output, labels)
-            A_loss.append(loss.to('cpu').detach())
+                audio_input, labels, _ = batch_data
+                
+            audio_input = audio_input.to(device)
+            audio_output = audio_model(audio_input, args.task)
+            
+            # Metrics & Loss
+            if args.metrics == 'wer':
+                # CTC Loss
+                logits = audio_output.transpose(0, 1) # [Time, Batch, Class]
+                loss = nn.CTCLoss(blank=0, zero_infinity=True)(
+                    logits.log_softmax(2), labels, input_len, label_len
+                )
+                A_loss.append(loss.to('cpu').detach())
+
+                # Greedy Decode for WER & Saving
+                preds = torch.argmax(audio_output, dim=2).cpu().numpy()
+                for b in range(preds.shape[0]):
+                    # Decode Hypothesis
+                    pred_indices = []
+                    prev = -1
+                    for t in range(input_len[b]):
+                        curr = preds[b][t]
+                        if curr != prev and curr != 0: pred_indices.append(curr)
+                        prev = curr
+                    hyp = "".join([idx2char.get(ix, "") for ix in pred_indices]).replace("<space>", " ")
+                    
+                    # Decode Reference
+                    ref_indices = labels[b][:label_len[b]].cpu().tolist()
+                    ref = "".join([idx2char.get(ix, "") for ix in ref_indices]).replace("<space>", " ")
+                    
+                    # Calc WER
+                    wer = calculate_wer(hyp, ref)
+                    total_wer += wer
+                    total_samples += 1
+                    
+                    # Store for writing to file
+                    asr_results.append(f"REF: {ref}\nHYP: {hyp}\nWER: {wer:.4f}\n{'-'*20}\n")
+                    
+            else:
+                # Classification Loss (BCE/CE)
+                if isinstance(args.loss_fn, torch.nn.CrossEntropyLoss):
+                    loss = args.loss_fn(audio_output, torch.argmax(labels.long(), axis=1))
+                else:
+                    loss = args.loss_fn(audio_output, labels)
+                
+                audio_output = torch.sigmoid(audio_output)
+                A_predictions.append(audio_output.to('cpu').detach())
+                A_targets.append(labels.to('cpu').detach())
+                A_loss.append(loss.item())
 
             batch_time.update(time.time() - end)
             end = time.time()
 
-        audio_output = torch.cat(A_predictions)
-        target = torch.cat(A_targets)
+        # Save Predictions to exp_dir
         loss = np.mean(A_loss)
-        stats = calculate_stats(audio_output, target)
-
-        # save the prediction here
         exp_dir = args.exp_dir
-        if os.path.exists(exp_dir+'/predictions') == False:
-            os.mkdir(exp_dir+'/predictions')
-            np.savetxt(exp_dir+'/predictions/target.csv', target, delimiter=',')
-        np.savetxt(exp_dir+'/predictions/predictions_' + str(epoch) + '.csv', audio_output, delimiter=',')
+        if not os.path.exists(exp_dir + '/predictions'):
+            os.makedirs(exp_dir + '/predictions')
 
-    return stats, loss
+        if args.metrics == 'wer':
+            # Save WER results
+            avg_wer = total_wer / total_samples
+            print(f"Validation WER: {avg_wer:.4f}")
+            
+            with open(f"{exp_dir}/predictions/predictions_{epoch}.txt", "w") as f:
+                f.writelines(asr_results)
+            
+            # Return pseudo-stats so the main loop doesn't crash
+            return [{'wer': avg_wer, 'acc': 1.0-avg_wer, 'auc': 0, 'AP': 0, 'precisions': [0], 'recalls': [0]}], loss
+        else:
+            # Save classification predictions and targets
+            audio_output = torch.cat(A_predictions)
+            target = torch.cat(A_targets)
+            stats = calculate_stats(audio_output, target)
+            
+            np.savetxt(exp_dir + '/predictions/target.csv', target, delimiter=',')
+            np.savetxt(exp_dir + '/predictions/predictions_' + str(epoch) + '.csv', audio_output, delimiter=',')
+            
+            return stats, loss
 
 def validate_ensemble(args, epoch):
     exp_dir = args.exp_dir
