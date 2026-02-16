@@ -12,7 +12,6 @@ import torch
 import sys
 sys.path.append("/data/sls/scratch/yuangong/aed-trans/src/models/")
 sys.path.append("/data/sls/scratch/yuangong/aed-trans/src/")
-from timm.models.layers import trunc_normal_
 import timm
 import numpy as np
 from timm.models.layers import to_2tuple
@@ -21,23 +20,42 @@ from matplotlib import pyplot as plt
 import random
 from torch.nn import functional as F
 
+try:
+    # timm >= 0.9.x moves layers to timm.layers
+    from timm.layers import trunc_normal_, PatchEmbed
+except ImportError:
+    # timm < 0.9.x keeps them in timm.models.layers
+    from timm.models.layers import trunc_normal_
+    try:
+        from timm.models.layers import PatchEmbed
+    except ImportError:
+        # Fallback for very old timm versions
+        from timm.models.vision_transformer import PatchEmbed
+# -----------------------------------------------
+
 # override the timm package to relax the input shape constraint.
 class PatchEmbed(nn.Module):
     """ Image to Patch Embedding
     """
-    def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768):
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, embed_dim=768, norm_layer=None, flatten=True, **kwargs):
         super().__init__()
         img_size = to_2tuple(img_size)
         patch_size = to_2tuple(patch_size)
-        num_patches = (img_size[1] // patch_size[1]) * (img_size[0] // patch_size[0])
         self.img_size = img_size
         self.patch_size = patch_size
-        self.num_patches = num_patches
+        self.grid_size = (img_size[0] // patch_size[0], img_size[1] // patch_size[1])
+        self.num_patches = self.grid_size[0] * self.grid_size[1]
+        self.flatten = flatten
 
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
-
+        self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
+        
     def forward(self, x):
-        x = self.proj(x).flatten(2).transpose(1, 2)
+        # B, C, H, W = x.shape
+        x = self.proj(x)
+        if self.flatten:
+            x = x.flatten(2).transpose(1, 2) # BCHW -> BNC
+        x = self.norm(x)
         return x
 
 def get_sinusoid_encoding(n_position, d_hid):
@@ -60,10 +78,14 @@ class ASTModel(nn.Module):
                  num_clusters=512, target_layer_idx=6, vocab_size=30):
 
         super(ASTModel, self).__init__()
-        assert timm.__version__ == '0.4.5', 'Please use timm == 0.4.5, the code might not be compatible with newer versions.'
-
         # override timm input shape restriction
-        timm.models.vision_transformer.PatchEmbed = PatchEmbed
+        if hasattr(timm.models.vision_transformer, 'PatchEmbed'):
+            timm.models.vision_transformer.PatchEmbed = PatchEmbed
+        
+        # Update timm.layers if it exists (timm >= 0.9.x)
+        if hasattr(timm, 'layers') and hasattr(timm.layers, 'PatchEmbed'):
+            timm.layers.PatchEmbed = PatchEmbed
+        # -----------------------------------------------
 
         # pretrain the AST models
         if pretrain_stage == True:
@@ -715,3 +737,4 @@ if __name__ == '__main__':
     # pred, masked = ast_mdl(test_input, task='visualize_mask', mask_patch=100)
     # plt.imshow(masked[0,0])
     # plt.show()
+    

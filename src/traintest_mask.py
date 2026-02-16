@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 from utilities import *
 import time
 import torch
+import torch.nn as nn
 import numpy as np
 import pickle
 from sklearn.cluster import MiniBatchKMeans
@@ -270,9 +271,10 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 # if the task is generation, stop after eval mse loss stop improve
                 if args.task == 'pretrain_mpg':
                     # acc_eval is in fact the mse loss, it is dirty code
-                    scheduler.step(-acc_eval)
+                    # Cast to float for scheduler compatibility
+                    scheduler.step(-float(acc_eval))
                 else:
-                    scheduler.step(acc_eval)
+                    scheduler.step(float(acc_eval))
 
                 print('# {:d}, step {:d}-{:d}, lr: {:e}'.format(equ_epoch, global_step-epoch_iteration, global_step, optimizer.param_groups[0]['lr']))
 
@@ -337,10 +339,6 @@ def validatemask(audio_model, val_loader, args, epoch):
                 A_nce.append(torch.mean(mse).cpu()) # Tracking MSE in the 'nce' slot for reporting
             else:
                 raise Exception("No such pretraining task {}".format(args.task))
-
-                A_acc.append(torch.mean(acc).cpu())
-                # A_nce then tracks the mse loss
-                A_nce.append(torch.mean(mse).cpu())
 
         acc = np.mean(A_acc)
         nce = np.mean(A_nce)

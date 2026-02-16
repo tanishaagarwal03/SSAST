@@ -215,6 +215,8 @@ class AudioDataset(Dataset):
         elif p < 0:
             fbank = fbank[0:target_length, :]
             valid_length = target_length
+        else:
+            valid_length = n_frames
 
         return fbank, mix_lambda, valid_length
 
@@ -223,7 +225,8 @@ class AudioDataset(Dataset):
         for c in text:
             if c == " ": indices.append(self.space_idx)
             elif c in self.vocab: indices.append(self.vocab[c])
-        return torch.LongTensor(indices)
+        # Changed: Updated to modern tensor constructor
+        return torch.tensor(indices, dtype=torch.long)
     
     def __getitem__(self, index):
         """
@@ -236,6 +239,7 @@ class AudioDataset(Dataset):
         
         if self.task_type == "ASR":
             # No Mixup for ASR
+            # Changed: Fixed unpacking error (3 values returned)
             fbank, _, valid_len = self._wav2fbank(datum['wav'])
             
             # SpecAugment
@@ -257,7 +261,8 @@ class AudioDataset(Dataset):
             if label_len > max_label_len:
                 label_tensor = label_tensor[:max_label_len]
                 label_len = max_label_len
-            padded_label = torch.zeros(max_label_len).long()
+            # Changed: Updated to modern tensor constructor
+            padded_label = torch.zeros(max_label_len, dtype=torch.long)
             padded_label[:label_len] = label_tensor
 
             return fbank, padded_label, valid_len, label_len
@@ -274,7 +279,8 @@ class AudioDataset(Dataset):
                 mix_sample_idx = random.randint(0, len(self.data)-1)
                 mix_datum = self.data[mix_sample_idx]
                 # get the mixed fbank
-                fbank, mix_lambda = self._wav2fbank(datum['wav'], mix_datum['wav'])
+                # Changed: Fixed unpacking error (3 values returned)
+                fbank, mix_lambda, _ = self._wav2fbank(datum['wav'], mix_datum['wav'])
                 # initialize the label
                 label_indices = np.zeros(self.label_num)
                 # add sample 1 labels
@@ -283,16 +289,19 @@ class AudioDataset(Dataset):
                 # add sample 2 labels
                 for label_str in mix_datum['labels'].split(','):
                     label_indices[int(self.index_dict[label_str])] += (1.0-mix_lambda)
-                label_indices = torch.FloatTensor(label_indices)
+                # Changed: Updated to modern tensor constructor
+                label_indices = torch.tensor(label_indices, dtype=torch.float32)
             # if not do mixup
             else:
                 datum = self.data[index]
                 label_indices = np.zeros(self.label_num)
-                fbank, mix_lambda = self._wav2fbank(datum['wav'])
+                # Changed: Fixed unpacking error (3 values returned)
+                fbank, mix_lambda, _ = self._wav2fbank(datum['wav'])
                 for label_str in datum['labels'].split(','):
                     label_indices[int(self.index_dict[label_str])] = 1.0
 
-                label_indices = torch.FloatTensor(label_indices)
+                # Changed: Updated to modern tensor constructor
+                label_indices = torch.tensor(label_indices, dtype=torch.float32)
 
             # SpecAug, not do for eval set
             freqm = torchaudio.transforms.FrequencyMasking(self.freqm)

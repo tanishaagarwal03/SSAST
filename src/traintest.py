@@ -16,7 +16,6 @@ from torch import nn
 import numpy as np
 import pickle
 import json
-from torch.cuda.amp import autocast,GradScaler
 
 def calculate_wer(hyp, ref):
     """Simple WER calculation"""
@@ -470,11 +469,11 @@ def validate_wa(audio_model, val_loader, args, start_epoch, end_epoch):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     exp_dir = args.exp_dir
 
-    sdA = torch.load(exp_dir + '/models/audio_model.' + str(start_epoch) + '.pth', map_location=device)
+    sdA = torch.load(exp_dir + '/models/audio_model.' + str(start_epoch) + '.pth', map_location=device, weights_only=True)
 
     model_cnt = 1
     for epoch in range(start_epoch+1, end_epoch+1):
-        sdB = torch.load(exp_dir + '/models/audio_model.' + str(epoch) + '.pth', map_location=device)
+        sdB = torch.load(exp_dir + '/models/audio_model.' + str(epoch) + '.pth', map_location=device, weights_only=True)
         for key in sdA:
             sdA[key] = sdA[key] + sdB[key]
         model_cnt += 1
