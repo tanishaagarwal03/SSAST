@@ -354,7 +354,6 @@ class ASTModel(nn.Module):
         return x
 
     def finetuningasr(self, x):
-        x = x.unsqueeze(1).transpose(2, 3)
         x = self.v.patch_embed(x)
         B, N, D = x.shape
         
