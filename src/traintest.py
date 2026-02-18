@@ -43,7 +43,7 @@ def train(audio_model, train_loader, test_loader, args):
     per_sample_dnn_time = AverageMeter()
     progress = []
     # best_cum_mAP is checkpoint ensemble from the first epoch to the best epoch
-    best_epoch, best_cum_epoch, best_mAP, best_acc, best_cum_mAP = 0, 0, -np.inf, -np.inf, -np.inf
+    best_epoch, best_cum_epoch, best_mAP, best_acc, best_cum_mAP, best_wer = 0, 0, -np.inf, -np.inf, -np.inf, np.inf
     global_step, epoch = 0, 0
     start_time = time.time()
     exp_dir = args.exp_dir
@@ -63,21 +63,33 @@ def train(audio_model, train_loader, test_loader, args):
     print('Total parameter number is : {:.3f} million'.format(sum(p.numel() for p in audio_model.parameters()) / 1e6))
     print('Total trainable parameter number is : {:.3f} million'.format(sum(p.numel() for p in trainables) / 1e6))
 
-    # diff lr optimizer
-    mlp_list = ['mlp_head.0.weight', 'mlp_head.0.bias', 'mlp_head.1.weight', 'mlp_head.1.bias']
-    mlp_params = list(filter(lambda kv: kv[0] in mlp_list, audio_model.module.named_parameters()))
-    base_params = list(filter(lambda kv: kv[0] not in mlp_list, audio_model.module.named_parameters()))
-    mlp_params = [i[1] for i in mlp_params]
-    base_params = [i[1] for i in base_params]
-    # only finetuning small/tiny models on balanced audioset uses different learning rate for mlp head
-    print('The mlp header uses {:d} x larger lr'.format(args.head_lr))
-    optimizer = torch.optim.Adam([{'params': base_params, 'lr': args.lr}, {'params': mlp_params, 'lr': args.lr * args.head_lr}], weight_decay=5e-7, betas=(0.95, 0.999))
+    # Define prefixes for all "head" layers (Classification and ASR)
+    head_prefixes = ['mlp_head', 'asr_head', 'lstm']
+
+    # Filter parameters based on whether their name starts with one of the prefixes
+    head_params_pairs = list(filter(lambda kv: any(kv[0].startswith(p) for p in head_prefixes), audio_model.module.named_parameters()))
+    base_params_pairs = list(filter(lambda kv: not any(kv[0].startswith(p) for p in head_prefixes), audio_model.module.named_parameters()))
+
+    # Extract the parameters (tensors) from the (name, param) pairs
+    head_params = [i[1] for i in head_params_pairs]
+    base_params = [i[1] for i in base_params_pairs]
+
+    print('The head layers (mlp, asr, lstm) use {:d} x larger lr'.format(args.head_lr))
+    
+    # Create optimizer with parameter groups
+    optimizer = torch.optim.Adam(
+        [{'params': base_params, 'lr': args.lr}, 
+         {'params': head_params, 'lr': args.lr * args.head_lr}], 
+        weight_decay=5e-7, betas=(0.95, 0.999)
+    )
+
+    # Update lr_list for scheduler warm-up
     mlp_lr = optimizer.param_groups[1]['lr']
     lr_list = [args.lr, mlp_lr]
 
-    print('Total mlp parameter number is : {:.3f} million'.format(sum(p.numel() for p in mlp_params) / 1e6))
+    print('Total head parameter number is : {:.3f} million'.format(sum(p.numel() for p in head_params) / 1e6))
     print('Total base parameter number is : {:.3f} million'.format(sum(p.numel() for p in base_params) / 1e6))
-
+    
     # # dataset specific settings
     # if args.dataset == 'audioset':
     #     if len(train_loader.dataset) > 2e5:
@@ -145,9 +157,14 @@ def train(audio_model, train_loader, test_loader, args):
                 label_len = label_len.to(device, non_blocking=True)
                 # Scale input_len to match AST patch output dimensions
                 # Formula: (Input - Kernel) / Stride + 1
-                input_len = (input_len - args.tshape) // args.tstride + 1
-                # Ensure lengths are at least 1
-                input_len = torch.clamp(input_len, min=1)
+                input_len = torch.ceil((input_len - args.tshape) / args.tstride) + 1
+                input_len = input_len.long()
+                # Ensure lengths are at least 1 and at most max_t_dim to prevent CTC errors
+                if hasattr(audio_model, 'module'):
+                    max_t_dim = audio_model.module.t_dim_out
+                else:
+                    max_t_dim = audio_model.t_dim_out
+                input_len = torch.clamp(input_len, min=1, max=max_t_dim)
             else:
                 audio_input, labels, _ = batch_data
 
@@ -254,10 +271,21 @@ def train(audio_model, train_loader, test_loader, args):
             print("train_loss: {:.6f}".format(loss_meter.avg))
             print("valid_loss: {:.6f}".format(valid_loss))
             
+            # Define proxies to prevent UnboundLocalError
+            mAP = 0.0
+            acc = stats[0]['acc']  # This is (1 - WER) from validate()
+            
             # Save simple result CSV for ASR
             result[epoch-1, :] = [stats[0]['wer'], loss_meter.avg, valid_loss, 0, 0, 0, 0, 0, 0, optimizer.param_groups[0]['lr']]
             np.savetxt(exp_dir + '/result.csv', result, delimiter=',')
         print('validation finished')
+
+        # Track Best WER for ASR
+        if args.task == 'ft_asr':
+            if stats[0]['wer'] < best_wer:
+                best_wer = stats[0]['wer']
+                if main_metrics == 'wer':
+                    best_epoch = epoch
 
         if mAP > best_mAP:
             best_mAP = mAP
@@ -284,7 +312,9 @@ def train(audio_model, train_loader, test_loader, args):
 
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
             print('adaptive learning rate scheduler step')
-            scheduler.step(mAP)
+            # For ASR, use accuracy (1-WER) because scheduler mode is 'max'
+            metric_to_track = acc if args.task == 'ft_asr' else mAP
+            scheduler.step(metric_to_track)
         else:
             print('normal learning rate scheduler step')
             scheduler.step()
@@ -363,9 +393,14 @@ def validate(audio_model, val_loader, args, epoch):
                 label_len = label_len.to(device, non_blocking=True)
                 # Scale input_len to match AST patch output dimensions
                 # Formula: (Input - Kernel) / Stride + 1
-                input_len = (input_len - args.tshape) // args.tstride + 1
-                # Ensure lengths are at least 1
-                input_len = torch.clamp(input_len, min=1)
+                input_len = torch.ceil((input_len - args.tshape) / args.tstride) + 1
+                input_len = input_len.long()
+                if hasattr(audio_model, 'module'):
+                    max_t_dim = audio_model.module.t_dim_out
+                else:
+                    max_t_dim = audio_model.t_dim_out
+                # Ensure lengths are at least 1 and at most max_t_dim to prevent CTC errors
+                input_len = torch.clamp(input_len, min=1, max=max_t_dim)
             else:
                 audio_input, labels, _ = batch_data
                 

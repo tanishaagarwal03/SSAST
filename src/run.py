@@ -20,6 +20,7 @@ from models import ASTModel
 import numpy as np
 from traintest import train, validate
 from traintest_mask import trainmask
+import json
 
 print("I am process %s, running on %s: starting (%s)" % (os.getpid(), os.uname()[1], time.asctime()))
 

@@ -149,8 +149,13 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 )
                 audio_model.train()
 
-
-        for i, (audio_input, _, cluster_target) in enumerate(train_loader):
+        for i, batch_data in enumerate(train_loader):
+            if args.task == 'finetune_asr':
+                audio_input, _, _, _ = batch_data
+                cluster_target = None
+            else:
+                audio_input, _, cluster_target = batch_data
+                
             # measure data loading time
             B = audio_input.size(0)
             audio_input = audio_input.to(device, non_blocking=True)

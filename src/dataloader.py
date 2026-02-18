@@ -21,7 +21,9 @@ def make_index_dict(label_csv):
     with open(label_csv, 'r') as f:
         # Check if it's a simple vocab json (ASR) or a CSV (Classification)
         if label_csv.endswith('.json'):
-            return json.load(open(label_csv))
+            vocab = json.load(open(label_csv))
+            # Shift all indices by 1 to reserve 0 for CTC Blank
+            return {k: v + 1 for k, v in vocab.items()} 
             
         csv_reader = csv.DictReader(f)
         for row in csv_reader:
@@ -99,7 +101,9 @@ class AudioDataset(Dataset):
             print('ASR task detected. Using vocab from {:s}'.format(label_csv))
             self.task_type = "ASR"
             self.vocab = make_index_dict(label_csv)
-            self.space_idx = self.vocab.get("<space>", 1)
+            # Ensure space has a unique index
+            max_idx = max(self.vocab.values()) if self.vocab else 0
+            self.space_idx = self.vocab.get("<space>", max_idx + 2)
         else:
             print('Classification task detected. Using labels from {:s}'.format(label_csv))
             self.task_type = "CLS"
@@ -201,7 +205,10 @@ class AudioDataset(Dataset):
 
         fbank = torchaudio.compliance.kaldi.fbank(waveform, htk_compat=True, sample_frequency=sr, use_energy=False,
                                                   window_type='hanning', num_mel_bins=self.melbins, dither=0.0, frame_shift=10)
-
+        # Normalize
+        if not self.skip_norm:
+            fbank = (fbank - self.norm_mean) / (self.norm_std * 2)
+            
         target_length = self.audio_conf.get('target_length')
         n_frames = fbank.shape[0]
 
@@ -209,8 +216,7 @@ class AudioDataset(Dataset):
 
         # cut and pad
         if p > 0:
-            m = torch.nn.ZeroPad2d((0, 0, 0, p))
-            fbank = m(fbank)
+            fbank = torch.nn.functional.pad(fbank, (0, 0, 0, p))
             valid_length = n_frames
         elif p < 0:
             fbank = fbank[0:target_length, :]
@@ -247,10 +253,6 @@ class AudioDataset(Dataset):
                 fbank = torchaudio.transforms.FrequencyMasking(self.freqm)(fbank.unsqueeze(0).transpose(1,2)).transpose(1,2).squeeze(0)
             if self.timem > 0:
                 fbank = torchaudio.transforms.TimeMasking(self.timem)(fbank.unsqueeze(0).transpose(1,2)).transpose(1,2).squeeze(0)
-                
-            # Normalize
-            if not self.skip_norm:
-                fbank = (fbank - self.norm_mean) / (self.norm_std * 2)
 
             # Label Processing
             label_tensor = self.text_to_tensor(datum['labels'])
@@ -261,8 +263,7 @@ class AudioDataset(Dataset):
             if label_len > max_label_len:
                 label_tensor = label_tensor[:max_label_len]
                 label_len = max_label_len
-            # Changed: Updated to modern tensor constructor
-            padded_label = torch.zeros(max_label_len, dtype=torch.long)
+            padded_label = torch.full((max_label_len,), 0, dtype=torch.long)
             padded_label[:label_len] = label_tensor
 
             return fbank, padded_label, valid_len, label_len
