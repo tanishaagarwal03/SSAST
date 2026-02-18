@@ -222,14 +222,22 @@ class ASTModel(nn.Module):
             self.t_dim_out = (input_tdim - tshape) // tstride + 1
             lstm_input_dim = self.original_embedding_dim * self.f_dim_out
             
+            # Tiny: 1 layer = ~0.6M params in LSTM layer
+            # Tiny: 2 layers = ~1.8M params in LSTM layers
+            # Base: 2 layer = ~20M params in LSTM layers
+            if model_size == 'tiny':
+                lstm_layers = 1
+            else:
+                lstm_layers = 2
+            
             self.lstm = nn.LSTM(
                 input_size=lstm_input_dim,
-                hidden_size=768,
-                num_layers=2,
+                hidden_size=self.original_embedding_dim,  # 192 for tiny, 768 for base
+                num_layers=lstm_layers,
                 batch_first=True,
                 bidirectional=True
             )
-            self.asr_head = nn.Linear(768 * 2, vocab_size)
+            self.asr_head = nn.Linear(self.original_embedding_dim * 2, vocab_size)
 
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim, fshape, tshape)
             # patch array dimension during pretraining
@@ -259,9 +267,9 @@ class ASTModel(nn.Module):
             if t_dim < p_t_dim:
                 new_pos_embed = new_pos_embed[:, :, :, int(p_t_dim/2) - int(t_dim / 2): int(p_t_dim/2) - int(t_dim / 2) + t_dim]
             else:
-                new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(8, t_dim), mode='bilinear')
+                new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(p_f_dim, t_dim), mode='bilinear')
             if f_dim < p_f_dim:
-                new_pos_embed = new_pos_embed[:, :, int(p_f_dim/2) - int(f_dim / 2): int(p_f_dim/2) - int(f_dim / 2) + t_dim, :]
+                new_pos_embed = new_pos_embed[:, :, int(p_f_dim/2) - int(f_dim / 2): int(p_f_dim/2) - int(f_dim / 2) + f_dim, :]
             else:
                 new_pos_embed = torch.nn.functional.interpolate(new_pos_embed, size=(f_dim, t_dim), mode='bilinear')
 

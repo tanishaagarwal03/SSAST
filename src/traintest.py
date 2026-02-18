@@ -118,7 +118,8 @@ def train(audio_model, train_loader, test_loader, args):
     # print('now training with {:s}, main metrics: {:s}, loss function: {:s}, learning rate scheduler: {:s}'.format(str(args.dataset), str(main_metrics), str(loss_fn), str(scheduler)))
 
     if args.adaptschedule == True:
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=args.lr_patience)
+        sched_mode = 'min' if args.metrics == 'wer' else 'max'
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode=sched_mode, factor=0.5, patience=args.lr_patience)
         print('now use adaptive learning rate scheduler.')
     else:
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, list(range(args.lrscheduler_start, 1000, args.lrscheduler_step)),gamma=args.lrscheduler_decay)
@@ -157,7 +158,7 @@ def train(audio_model, train_loader, test_loader, args):
                 label_len = label_len.to(device, non_blocking=True)
                 # Scale input_len to match AST patch output dimensions
                 # Formula: (Input - Kernel) / Stride + 1
-                input_len = torch.ceil((input_len - args.tshape) / args.tstride) + 1
+                input_len = (input_len - args.tshape) // args.tstride + 1
                 input_len = input_len.long()
                 # Ensure lengths are at least 1 and at most max_t_dim to prevent CTC errors
                 if hasattr(audio_model, 'module'):
@@ -313,9 +314,9 @@ def train(audio_model, train_loader, test_loader, args):
 
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
             print('adaptive learning rate scheduler step')
-            # For ASR, use accuracy (1-WER) because scheduler mode is 'max'
-            metric_to_track = acc if args.task == 'ft_asr' else mAP
+            metric_to_track = stats[0]['wer'] if args.task == 'ft_asr' else mAP
             scheduler.step(metric_to_track)
+            
         else:
             print('normal learning rate scheduler step')
             scheduler.step()
@@ -394,7 +395,7 @@ def validate(audio_model, val_loader, args, epoch):
                 label_len = label_len.to(device, non_blocking=True)
                 # Scale input_len to match AST patch output dimensions
                 # Formula: (Input - Kernel) / Stride + 1
-                input_len = torch.ceil((input_len - args.tshape) / args.tstride) + 1
+                input_len = (input_len - args.tshape) // args.tstride + 1
                 input_len = input_len.long()
                 if hasattr(audio_model, 'module'):
                     max_t_dim = audio_model.module.t_dim_out

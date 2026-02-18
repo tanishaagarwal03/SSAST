@@ -150,7 +150,7 @@ def trainmask(audio_model, train_loader, test_loader, args):
                 audio_model.train()
 
         for i, batch_data in enumerate(train_loader):
-            if args.task == 'finetune_asr':
+            if args.task == 'ft_asr':
                 audio_input, _, _, _ = batch_data
                 cluster_target = None
             else:
