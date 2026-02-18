@@ -94,7 +94,7 @@ tstride=10
 
 task=ft_asr         # Fine-tuning for ASR task
 model_size="${2:-tiny}" # Default to tiny model
-head_lr=10          # Higher learning rate for the new classification head
+head_lr=1          # Higher learning rate for the new classification head
 
 # N_CLASS is calculated based on train-clean-100 speakers (approx 251)
 # You can grep the csv to get exact line count minus header

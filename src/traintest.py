@@ -194,6 +194,7 @@ def train(audio_model, train_loader, test_loader, args):
 
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(audio_model.parameters(), max_norm=1.0)
             optimizer.step()
 
             # record loss
@@ -220,10 +221,10 @@ def train(audio_model, train_loader, test_loader, args):
                     torch.save(optimizer.state_dict(), "%s/models/nan_optim_state.pth" % (exp_dir))
                     with open(exp_dir + '/audio_input.npy', 'wb') as f:
                         np.save(f, audio_input.cpu().detach().numpy())
-                    np.savetxt(exp_dir + '/audio_output.csv', audio_output.cpu().detach().numpy(), delimiter=',')
-                    np.savetxt(exp_dir + '/labels.csv', labels.cpu().detach().numpy(), delimiter=',')
+                    np.save(exp_dir + '/audio_output.npy', audio_output.cpu().detach().numpy())
+                    np.save(exp_dir + '/labels.npy', labels.cpu().detach().numpy())
                     print('audio output and label saved for debugging.')
-                    #return
+                    return
 
             end_time = time.time()
             global_step += 1
@@ -378,7 +379,7 @@ def validate(audio_model, val_loader, args, epoch):
     
     asr_results = []
     total_wer, total_samples = 0, 0
-    
+            
     idx2char = {}
     if args.metrics == 'wer':
         with open(args.label_csv, 'r') as f: # args.label_csv is vocab.json for ASR

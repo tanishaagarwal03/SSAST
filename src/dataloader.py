@@ -22,8 +22,7 @@ def make_index_dict(label_csv):
         # Check if it's a simple vocab json (ASR) or a CSV (Classification)
         if label_csv.endswith('.json'):
             vocab = json.load(open(label_csv))
-            # Shift all indices by 1 to reserve 0 for CTC Blank
-            return {k: v + 1 for k, v in vocab.items()} 
+            return vocab
             
         csv_reader = csv.DictReader(f)
         for row in csv_reader:
@@ -319,11 +318,8 @@ class AudioDataset(Dataset):
             fbank = torch.transpose(fbank, 0, 1)
 
             # normalize the input for both training and test
-            if not self.skip_norm:
-                fbank = (fbank - self.norm_mean) / (self.norm_std * 2)
-            # skip normalization the input if you are trying to get the normalization stats.
-            else:
-                pass
+            # NOTE: normalization is already applied inside _wav2fbank(),
+            # so we do NOT normalize again here.
 
             if self.noise == True:
                 fbank = fbank + torch.rand(fbank.shape[0], fbank.shape[1]) * np.random.rand() / 10
