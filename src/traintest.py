@@ -315,13 +315,13 @@ def train(audio_model, train_loader, test_loader, args):
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
             print('adaptive learning rate scheduler step')
             
-        if args.task == 'ft_asr':
-            metric_to_track = stats[0]['wer']
-        elif main_metrics == 'acc':
-            metric_to_track = acc
-        else:
-            metric_to_track = mAP
-            scheduler.step(metric_to_track)
+            if args.task == 'ft_asr':
+                metric_to_track = stats[0]['wer']
+            elif main_metrics == 'acc':
+                metric_to_track = acc
+            else:
+                metric_to_track = mAP
+                scheduler.step(metric_to_track)
             
         else:
             print('normal learning rate scheduler step')
