@@ -414,8 +414,11 @@ class ASTModel(nn.Module):
             B = x.shape[0]
             # Add cls and dist tokens
             cls_tokens = self.v.cls_token.expand(B, -1, -1)
-            dist_token = self.v.dist_token.expand(B, -1, -1)
-            x = torch.cat((cls_tokens, dist_token, x), dim=1)
+            if self.cls_token_num == 2:
+                dist_token = self.v.dist_token.expand(B, -1, -1)
+                x = torch.cat((cls_tokens, dist_token, x), dim=1)
+            else:
+                x = torch.cat((cls_tokens, x), dim=1)
             # Add positional embeddings
             x = x + self.v.pos_embed
             # Apply dropout
@@ -479,8 +482,11 @@ class ASTModel(nn.Module):
 
         # Pass through the Transformer layers
         cls_tokens = self.v.cls_token.expand(B, -1, -1)
-        dist_token = self.v.dist_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, dist_token, x), dim=1)
+        if self.cls_token_num == 2:
+            dist_token = self.v.dist_token.expand(B, -1, -1)
+            x = torch.cat((cls_tokens, dist_token, x), dim=1)
+        else:
+            x = torch.cat((cls_tokens, x), dim=1)
         x = x + self.v.pos_embed
         x = self.v.pos_drop(x)
         for blk in self.v.blocks:
@@ -585,7 +591,7 @@ class ASTModel(nn.Module):
         x, input_patches, mask_index = self._masked_encoding_body(x, mask_patch, cluster)
         # MPC Head Logic
         # If show_mask is True, return the visualization of masked area instead of loss/accuracy
-        nce, acc = self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask)
+        acc, nce = self._mpc_head(x, input_patches, mask_index, mask_patch, show_mask)
         return nce, acc
         
     # Masked patch pretraining with generative objective

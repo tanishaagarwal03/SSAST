@@ -20,7 +20,7 @@ import json
 def calculate_wer(hyp, ref):
     """Simple WER calculation"""
     h, r = hyp.split(), ref.split()
-    d = np.zeros((len(r)+1, len(h)+1), dtype=np.uint8)
+    d = np.zeros((len(r)+1, len(h)+1), dtype=np.uint32)
     for i in range(len(r)+1): d[i][0] = i
     for j in range(len(h)+1): d[0][j] = j
     for i in range(1, len(r)+1):
@@ -288,20 +288,20 @@ def train(audio_model, train_loader, test_loader, args):
                 best_wer = stats[0]['wer']
                 if main_metrics == 'wer':
                     best_epoch = epoch
+        else:
+            if mAP > best_mAP:
+                best_mAP = mAP
+                if main_metrics == 'mAP':
+                    best_epoch = epoch
 
-        if mAP > best_mAP:
-            best_mAP = mAP
-            if main_metrics == 'mAP':
-                best_epoch = epoch
+            if acc > best_acc:
+                best_acc = acc
+                if main_metrics == 'acc':
+                    best_epoch = epoch
 
-        if acc > best_acc:
-            best_acc = acc
-            if main_metrics == 'acc':
-                best_epoch = epoch
-
-        if cum_mAP > best_cum_mAP:
-            best_cum_epoch = epoch
-            best_cum_mAP = cum_mAP
+            if cum_mAP > best_cum_mAP:
+                best_cum_epoch = epoch
+                best_cum_mAP = cum_mAP
 
         if best_epoch == epoch:
             torch.save(audio_model.state_dict(), "%s/models/best_audio_model.pth" % (exp_dir))
@@ -314,7 +314,13 @@ def train(audio_model, train_loader, test_loader, args):
 
         if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
             print('adaptive learning rate scheduler step')
-            metric_to_track = stats[0]['wer'] if args.task == 'ft_asr' else mAP
+            
+        if args.task == 'ft_asr':
+            metric_to_track = stats[0]['wer']
+        elif main_metrics == 'acc':
+            metric_to_track = acc
+        else:
+            metric_to_track = mAP
             scheduler.step(metric_to_track)
             
         else:

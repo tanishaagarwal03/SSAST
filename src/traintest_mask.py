@@ -41,8 +41,9 @@ def update_cluster_centroids(audio_model, train_loader, args):
         
     model.eval()
     with torch.no_grad():
-        # Iterate over loader (unpacking 3 items: input, label, target_id)
-        for i, (audio_input, _, _) in enumerate(train_loader): 
+        # Iterate over loader
+        for i, batch in enumerate(train_loader):
+            audio_input = batch[0]
             if i >= num_batches_to_sample: break
             
             audio_input = audio_input.to(device)
@@ -314,7 +315,8 @@ def validatemask(audio_model, val_loader, args, epoch):
     A_acc = []
     A_nce = []
     with torch.no_grad():
-        for i, (audio_input, _, _) in enumerate(val_loader):
+        for i, batch in enumerate(val_loader):
+            audio_input = batch[0]
             audio_input = audio_input.to(device)
 
             # use cluster masking only when masking patches, not frames
@@ -337,6 +339,8 @@ def validatemask(audio_model, val_loader, args, epoch):
             elif args.task == 'pretrain_joint':
                 acc, _ = audio_model(audio_input, 'pretrain_mpc', mask_patch=400, cluster=cluster)
                 mse = audio_model(audio_input, 'pretrain_mpg', mask_patch=400, cluster=cluster)
+                A_acc.append(torch.mean(acc).cpu())
+                A_nce.append(torch.mean(mse).cpu()) # Tracking MSE in the 'nce' slot for reporting
             elif args.task == 'pretrain_mpmhb':
                 acc, _ = audio_model(audio_input, 'pretrain_mpc', mask_patch=400, cluster=cluster)
                 mse = audio_model(audio_input, 'pretrain_mpg', mask_patch=400, cluster=cluster)

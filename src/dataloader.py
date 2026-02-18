@@ -21,7 +21,7 @@ def make_index_dict(label_csv):
     with open(label_csv, 'r') as f:
         # Check if it's a simple vocab json (ASR) or a CSV (Classification)
         if label_csv.endswith('.json'):
-            vocab = json.load(open(label_csv))
+            vocab = json.load(f)
             return vocab
             
         csv_reader = csv.DictReader(f)
@@ -147,7 +147,8 @@ class AudioDataset(Dataset):
         model.eval()
         
         with torch.no_grad():
-            for i, (fbank, _, _) in enumerate(temp_loader):
+            for i, batch in enumerate(temp_loader):
+                fbank = batch[0]
                 fbank = fbank.to(device)
                 # Ensure input shape is [B, 1, F, T] for AST
                 if fbank.dim() == 3:
@@ -165,8 +166,6 @@ class AudioDataset(Dataset):
         self.use_cluster_labels = True
         
         # Restore original augmentation settings
-        self.mixup = original_mixup
-        self.noise = self.audio_conf.get('noise')
         self.mixup = original_mixup
         self.noise = self.audio_conf.get('noise')
         self.freqm = original_freqm
@@ -193,7 +192,7 @@ class AudioDataset(Dataset):
                     waveform2 = temp_wav
                 else:
                     # cutting
-                    waveform2 = waveform2[0, 0:waveform1.shape[1]]
+                    waveform2 = waveform2[:, 0:waveform1.shape[1]]
                 
             # sample lambda from uniform distribution
             #mix_lambda = random.random()
