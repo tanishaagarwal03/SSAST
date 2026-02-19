@@ -81,11 +81,11 @@ label_csv=./data/datafiles/vocab.json
 
 # Hyperparameters
 bal=none
-lr=1e-4             # Slightly lower LR for fine-tuning on larger model
-freqm=10
-timem=20
+lr=1e-5          # Slightly lower LR for fine-tuning on larger model
+freqm=20
+timem=30
 mixup=0
-epoch=30
+epoch=10
 batch_size=24       # Reduced batch size as target_length 1024 consumes more VRAM
 fshape=128
 tshape=2
@@ -94,7 +94,7 @@ tstride=10
 
 task=ft_asr         # Fine-tuning for ASR task
 model_size="${2:-tiny}" # Default to tiny model
-head_lr=5          # Higher learning rate for the new classification head
+head_lr=10          # Higher learning rate for the new classification head
 
 # N_CLASS is calculated based on train-clean-100 speakers (approx 251)
 # You can grep the csv to get exact line count minus header
