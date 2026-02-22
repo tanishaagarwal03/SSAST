@@ -13,6 +13,7 @@ set -x
 # . /data/sls/scratch/share-201907/slstoolchainrc
 . /home/htang2/toolchain-20251006/toolchain.rc
 source ../../../venvssast/bin/activate
+export LD_LIBRARY_PATH=""
 export TORCH_HOME=../../pretrained_models
 mkdir exp
 
@@ -52,8 +53,8 @@ timem=96
 mixup=0
 epoch=50
 batch_size=48
-fshape=16
-tshape=16
+fshape=128
+tshape=2
 fstride=10
 tstride=10
 
