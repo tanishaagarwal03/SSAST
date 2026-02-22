@@ -55,7 +55,7 @@ python prep_ls.py --dataset_path "$SCRATCH_ROOT/LibriSpeech"
 pretrain_exp=./../../pretrain/exp/
 # Provide the pretrained model name as the first argument to this script, 
 # or default to a standard one if not provided.
-pretrain_model="${1:-mask01-tiny-f16-t16-b64-lr5e-4-m400-pretrain_mpmhb-librispeech360}"
+pretrain_model="$1"
 pretrain_path=./${pretrain_exp}/${pretrain_model}/models/best_audio_model.pth
 
 # If specific model path not found, try to download or handle gracefully
@@ -82,7 +82,7 @@ label_csv=./data/datafiles/vocab.json
 # Hyperparameters
 bal=none
 lr=1e-5          # Slightly lower LR for fine-tuning on larger model
-freqm=20
+freqm=0          # Set to 0 for frame-based masking
 timem=30
 mixup=0
 epoch=50

@@ -30,9 +30,12 @@ fi
 #     wget https://www.dropbox.com/s/ewrzpco95n9jdz6/SSAST-Tiny-Patch-400.pth?dl=1 -O SSAST-Tiny-Patch-400.pth
 # fi
 
-pretrain_exp=./../../pretrain/exp/mask01-tiny-f16-t16-b64-lr5e-4-m400-pretrain_mpmhb-librispeech360
-pretrain_model=SSAST-Tiny-Patch-400-pretrain_mpmhb
-pretrain_path=./${pretrain_exp}/models/best_audio_model.pth
+pretrain_model="${1:-mask01-tiny-f16-t16-b64-lr5e-4-m400-pretrain_mpmhb-librispeech360}"
+pretrain_path=./${pretrain_exp}/${pretrain_model}/models/best_audio_model.pth
+
+pretrain_exp=./../../pretrain/exp/
+pretrain_model="$1"
+pretrain_path=./${pretrain_exp}/${pretrain_model}/models/best_audio_model.pth
 
 num_workers=4
 
