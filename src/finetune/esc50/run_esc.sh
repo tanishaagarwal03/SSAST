@@ -47,7 +47,7 @@ target_length=512
 noise=True
 
 bal=none
-lr=1e-4
+lr=1e-5
 freqm=24
 timem=96
 mixup=0
@@ -56,11 +56,11 @@ batch_size=48
 fshape=128
 tshape=2
 fstride=10
-tstride=10
+tstride=1
 
 task=ft_avgtok
-model_size=tiny
-head_lr=1
+model_size="${2:-tiny}"
+head_lr=10
 
 base_exp_dir=./exp/test01-${dataset}-f${fstride}-${fshape}-t${tstride}-${tshape}-b${batch_size}-lr${lr}-${task}-${model_size}-${pretrain_exp}-${pretrain_model}-${head_lr}x-noise${noise}
 

@@ -90,7 +90,7 @@ batch_size=24       # Reduced batch size as target_length 1024 consumes more VRA
 fshape=128
 tshape=2
 fstride=10          # Overlap for fine-tuning
-tstride=10
+tstride=1
 
 task=ft_asr         # Fine-tuning for ASR task
 model_size="${2:-tiny}" # Default to tiny model
