@@ -414,6 +414,7 @@ def validate(audio_model, val_loader, args, epoch):
                 
             audio_input = audio_input.to(device)
             audio_output = audio_model(audio_input, args.task)
+            labels = labels.to(device)
             
             # Metrics & Loss
             if args.metrics == 'wer':
