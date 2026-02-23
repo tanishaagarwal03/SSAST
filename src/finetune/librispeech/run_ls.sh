@@ -101,7 +101,7 @@ head_lr=10          # Higher learning rate for the new classification head
 n_class=$(python -c "import json; print(len(json.load(open('$label_csv'))))")
 echo "Detected $n_class classes (vocab size)."
 
-exp_dir=./exp/test-ls100-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-noise${noise}
+exp_dir=./exp/test01-${dataset}-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-${pretrain_model}-${head_lr}-noise${noise}
 
 echo "Starting Training..."
 

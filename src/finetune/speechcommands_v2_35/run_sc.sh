@@ -83,7 +83,7 @@ task=ft_avgtok
 model_size="${2:-tiny}"
 head_lr=10
 
-exp_dir=./exp/test01-${dataset}-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-$pretrain_exp-${pretrain_model}-${head_lr}x-noise${noise}
+exp_dir=./exp/test01-${dataset}-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-${pretrain_model}-${head_lr}x-noise${noise}
 
 CUDA_CACHE_DISABLE=1 python -W ignore ../../run.py --dataset ${dataset} \
 --data-train ${tr_data} --data-val ${val_data} --data-eval ${eval_data} --exp-dir $exp_dir \

@@ -62,7 +62,7 @@ task=ft_avgtok
 model_size="${2:-tiny}"
 head_lr=10
 
-base_exp_dir=./exp/test01-${dataset}-f${fstride}-${fshape}-t${tstride}-${tshape}-b${batch_size}-lr${lr}-${task}-${model_size}-${pretrain_exp}-${pretrain_model}-${head_lr}x-noise${noise}
+exp_dir=./exp/test01-${dataset}-f$fstride-t$tstride-b$batch_size-lr${lr}-${task}-${model_size}-${pretrain_model}-${head_lr}-noise${noise}
 
 for((fold=1;fold<=5;fold++));
 do
