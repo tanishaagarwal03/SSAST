@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=E3_tiny_frame_joint
-#SBATCH --partition=Teaching*
+#SBATCH --partition=Teaching
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=8

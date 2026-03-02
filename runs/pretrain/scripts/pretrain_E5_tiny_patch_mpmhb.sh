@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=E5_tiny_patch_mpmhb
-#SBATCH --partition=Teaching*
+#SBATCH --partition=Teaching
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
