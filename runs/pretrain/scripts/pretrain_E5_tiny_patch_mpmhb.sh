@@ -1,5 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=E5_tiny_patch_mpmhb
+#SBATCH --partition=Teaching*
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
@@ -7,7 +8,6 @@
 #SBATCH --time=2-00:00:00
 #SBATCH --output=/home/s2211921/SSAST/runs/pretrain/slurm_log/%x_%j.txt
 
-set -euo pipefail
 set -x
 
 . /home/htang2/toolchain-20251006/toolchain.rc
