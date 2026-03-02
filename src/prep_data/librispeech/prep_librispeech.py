@@ -86,16 +86,16 @@ if __name__ == '__main__':
     # args = parser.parse_args()
     
     # Create save directory if it doesn't exist
-    os.makedirs(os.path.dirname('/home/s2283874/../../disk/scratch/s2283874/librispeech/'), exist_ok=True)
+    os.makedirs(os.path.dirname('/home/s2211921/../../disk/scratch/s2211921/librispeech/'), exist_ok=True)
 
     # Train set
-    librispeech360_path = '/home/s2283874/../../disk/scratch/s2283874/librispeech/LibriSpeech/train-clean-360'
-    save_loc = '/home/s2283874/../../disk/scratch/s2283874/librispeech/librispeech_tr360_cut'
+    librispeech360_path = '/home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech/train-clean-360'
+    save_loc = '/home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut'
     walk(librispeech360_path, save_loc, testset_perc=None)
     
     # Evaluation set
-    librispeech100_path = '/home/s2283874/../../disk/scratch/s2283874/librispeech/LibriSpeech/train-clean-100'
-    save_loc = '/home/s2283874/../../disk/scratch/s2283874/librispeech/librispeech_tr100_cut'
+    librispeech100_path = '/home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech/train-clean-100'
+    save_loc = '/home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut'
     walk(librispeech100_path, save_loc, testset_perc=0.36, save_train_set=False)
     
     # librispeech100_path = '/data/sls/scratch/yuangong/l2speak/data/librispeech/LibriSpeech/train-clean-100/'

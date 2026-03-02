@@ -2,7 +2,7 @@
 #SBATCH --job-name="ssast-pretrain-maskpatch-tiny"
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=damnii[07-12],landonia[01-08,21-25]
+#SBATCH --time=2-00:00:00
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G
 #SBATCH --output=./slurm_log/log_%j.txt
@@ -18,20 +18,20 @@ mkdir exp
 mkdir slurm_log
 
 # Unzip librispeech dataset to scratch disk if not already done
-librispeech360_dir=~/../../disk/scratch/s2283874/librispeech/train-clean-360
-librispeech100_dir=~/../../disk/scratch/s2283874/librispeech/train-clean-100
+librispeech360_dir=~/../../disk/scratch/s2211921/librispeech/train-clean-360
+librispeech100_dir=~/../../disk/scratch/s2211921/librispeech/train-clean-100
 if [ ! -d "$librispeech360_dir" ] || [ ! -d "$librispeech100_dir" ]; then
-    mkdir -p ~/../../disk/scratch/s2283874/librispeech/
+    mkdir -p ~/../../disk/scratch/s2211921/librispeech/
     echo "LibriSpeech directory not found. Extracting archive..."
-    tar -xzf ~/ssast/src/prep_data/librispeech/train-clean-360.tar.gz -C ~/../../disk/scratch/s2283874/librispeech/
-    tar -xzf ~/ssast/src/prep_data/librispeech/train-clean-100.tar.gz -C ~/../../disk/scratch/s2283874/librispeech/
+    tar -xzf ~/ssast/src/prep_data/librispeech/train-clean-360.tar.gz -C ~/../../disk/scratch/s2211921/librispeech/
+    tar -xzf ~/ssast/src/prep_data/librispeech/train-clean-100.tar.gz -C ~/../../disk/scratch/s2211921/librispeech/
 else
     echo "LibriSpeech directory already exists at $librispeech_dir. Skipping extraction."
 fi
 
 # Check if JSON file exists, if not, run prep_librispeech.py
-json_file=~/../../disk/scratch/s2283874/librispeech/librispeech_tr360_cut.json
-json_test_file=~/../../disk/scratch/s2283874/librispeech/librispeech_tr360_cut_test.json
+json_file=~/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json
+json_test_file=~/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut_test.json
 if [ ! -f "$json_file" ] || [ ! -f "$json_test_file" ]; then
     echo "JSON file not found. Running prep_librispeech.py..."
     python ~/ssast/src/prep_data/librispeech/prep_librispeech.py
@@ -53,8 +53,8 @@ cluster_update_freq=-1   # Re-label dataset every n epochs. If -1, only label on
 # audioset and librispeech
 # dataset=asli
 dataset=librispeech360
-tr_data=~/../../disk/scratch/s2283874/librispeech/librispeech_tr360_cut.json
-te_data=~/../../disk/scratch/s2283874/librispeech/librispeech_tr100_cut_test.json
+tr_data=~/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json
+te_data=~/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json
 dataset_mean=-4.2677393
 dataset_std=4.5689974
 target_length=1024
