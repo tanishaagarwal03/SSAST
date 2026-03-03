@@ -1,0 +1,107 @@
++ . /home/htang2/toolchain-20251006/toolchain.rc
+++ ROOT=/home/htang2/toolchain-20251006
+++ export PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ export LD_LIBRARY_PATH=/home/htang2/toolchain-20251006/lib:/home/htang2/toolchain-20251006/lib64:/home/htang2/toolchain-20251006/opt/cuda/lib:/home/htang2/toolchain-20251006/opt/cuda/lib64:/home/htang2/toolchain-20251006/opt/cuda/extras/CUPTI/lib64:
+++ LD_LIBRARY_PATH=/home/htang2/toolchain-20251006/lib:/home/htang2/toolchain-20251006/lib64:/home/htang2/toolchain-20251006/opt/cuda/lib:/home/htang2/toolchain-20251006/opt/cuda/lib64:/home/htang2/toolchain-20251006/opt/cuda/extras/CUPTI/lib64:
++ source /home/s2211921/SSAST/venvssast/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ '[' linux-gnu = cygwin ']'
+++ '[' linux-gnu = msys ']'
+++ export VIRTUAL_ENV=/home/s2211921/SSAST/venvssast
+++ VIRTUAL_ENV=/home/s2211921/SSAST/venvssast
+++ _OLD_VIRTUAL_PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ PATH=/home/s2211921/SSAST/venvssast/bin:/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(venvssast) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(venvssast) '
+++ export VIRTUAL_ENV_PROMPT
+++ hash -r
++ HOME=/home/s2211921
++ REPO=/home/s2211921/SSAST
++ EXP_ROOT=/home/s2211921/SSAST/runs/pretrain/exp
++ mkdir -p /home/s2211921/SSAST/runs/pretrain/exp /home/s2211921/SSAST/runs/pretrain/slurm_log
++ SCRATCH=/disk/scratch/s2211921
++ LIBRI_PARENT=/disk/scratch/s2211921/librispeech
++ LIBRI_ROOT=/disk/scratch/s2211921/librispeech/LibriSpeech
++ mkdir -p /disk/scratch/s2211921/librispeech
++ TAR360=/home/s2211921/libri-360.tar
++ TAR100=/home/s2211921/train-clean-100.tar
++ '[' '!' -d /disk/scratch/s2211921/librispeech/LibriSpeech/train-clean-360 ']'
++ tar -xf /home/s2211921/libri-360.tar -C /disk/scratch/s2211921/librispeech
++ '[' '!' -d /disk/scratch/s2211921/librispeech/LibriSpeech/train-clean-100 ']'
++ json_train=/disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json
++ json_val=/disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json
++ regen=0
++ '[' '!' -f /disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json ']'
++ '[' '!' -f /disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json ']'
++ is_empty_json /disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json
++ python -
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+IndexError: list index out of range
++ is_empty_json /disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json
++ python -
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+IndexError: list index out of range
++ '[' 0 -eq 1 ']'
++ echo '[INFO] JSON looks non-empty, skipping prep'
+[INFO] JSON looks non-empty, skipping prep
++ '[' '!' -f /disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json ']'
++ '[' '!' -f /disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json ']'
++ dataset=librispeech360
++ dataset_mean=-4.2677393
++ dataset_std=4.5689974
++ target_length=1024
++ num_mel_bins=128
++ model_size=tiny
++ task=pretrain_joint
++ fshape=128
++ tshape=2
++ fstride=128
++ tstride=2
++ mask_patch=400
++ batch_size=64
++ lr=5e-4
++ epoch=5
++ lr_patience=2
++ freqm=0
++ timem=0
++ mixup=0
++ bal=none
++ num_workers=8
++ TAG=E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ exp_dir=/home/s2211921/SSAST/runs/pretrain/exp/E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ mkdir -p /home/s2211921/SSAST/runs/pretrain/exp/E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ CUDA_CACHE_DISABLE=1
++ python -W ignore /home/s2211921/SSAST/src/run.py --dataset librispeech360 --data-train /disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json --data-val /disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json --exp-dir /home/s2211921/SSAST/runs/pretrain/exp/E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4 --label-csv /home/s2211921/SSAST/src/pretrain/data/class_labels_indices.csv --lr 5e-4 --n-epochs 5 --batch-size 64 --save_model True --freqm 0 --timem 0 --mixup 0 --bal none --fshape 128 --tshape 2 --fstride 128 --tstride 2 --dataset_mean -4.2677393 --dataset_std 4.5689974 --target_length 1024 --num_mel_bins 128 --model_size tiny --mask_patch 400 --n-print-steps 100 --task pretrain_joint --lr_patience 2 --epoch_iter 800 --noise False --num-workers 8
+I am process 359795, running on saxa.inf.ed.ac.uk: starting (Mon Mar  2 15:42:57 2026)
+balanced sampler is not used
+---------------the train dataloader---------------
+now using following mask: 0 freq, 0 time
+now using mix-up with rate 0.000000
+now process librispeech360
+use dataset mean -4.268 and std 4.569 to normalize the input.
+number of classes is 527
+Traceback (most recent call last):
+  File "/home/s2211921/SSAST/src/run.py", line 122, in <module>
+    train_loader = torch.utils.data.DataLoader(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 394, in __init__
+    sampler = RandomSampler(dataset, generator=generator)  # type: ignore[arg-type]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/utils/data/sampler.py", line 149, in __init__
+    raise ValueError(
+ValueError: num_samples should be a positive integer value, but got num_samples=0

@@ -1,0 +1,138 @@
++ . /home/htang2/toolchain-20251006/toolchain.rc
+++ ROOT=/home/htang2/toolchain-20251006
+++ export PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ export LD_LIBRARY_PATH=/home/htang2/toolchain-20251006/lib:/home/htang2/toolchain-20251006/lib64:/home/htang2/toolchain-20251006/opt/cuda/lib:/home/htang2/toolchain-20251006/opt/cuda/lib64:/home/htang2/toolchain-20251006/opt/cuda/extras/CUPTI/lib64:
+++ LD_LIBRARY_PATH=/home/htang2/toolchain-20251006/lib:/home/htang2/toolchain-20251006/lib64:/home/htang2/toolchain-20251006/opt/cuda/lib:/home/htang2/toolchain-20251006/opt/cuda/lib64:/home/htang2/toolchain-20251006/opt/cuda/extras/CUPTI/lib64:
++ source /home/s2211921/SSAST/venvssast/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ '[' linux-gnu = cygwin ']'
+++ '[' linux-gnu = msys ']'
+++ export VIRTUAL_ENV=/home/s2211921/SSAST/venvssast
+++ VIRTUAL_ENV=/home/s2211921/SSAST/venvssast
+++ _OLD_VIRTUAL_PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ PATH=/home/s2211921/SSAST/venvssast/bin:/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(venvssast) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(venvssast) '
+++ export VIRTUAL_ENV_PROMPT
+++ hash -r
++ HOME=/home/s2211921
++ REPO=/home/s2211921/SSAST
++ EXP_ROOT=/home/s2211921/SSAST/runs/pretrain/exp
++ mkdir -p /home/s2211921/SSAST/runs/pretrain/exp /home/s2211921/SSAST/runs/pretrain/slurm_log
++ SCRATCH=/home/s2211921/../../disk/scratch/s2211921
++ LIBRI_PARENT=/home/s2211921/../../disk/scratch/s2211921/librispeech
++ LIBRI_ROOT=/home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech
++ mkdir -p /home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech
++ TAR360=/home/s2211921/train-clean-360.tar
++ TAR100=/home/s2211921/train-clean-100.tar
++ '[' '!' -d /home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech/train-clean-360 ']'
++ '[' '!' -d /home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech/train-clean-100 ']'
++ json_train=/home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json
++ json_val=/home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json
++ '[' '!' -f /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json ']'
++ '[' '!' -f /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json ']'
++ echo 'JSON file already exists at /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json and /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json. Skipping preparation.'
+JSON file already exists at /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json and /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json. Skipping preparation.
++ dataset=librispeech360
++ dataset_mean=-4.2677393
++ dataset_std=4.5689974
++ target_length=1024
++ num_mel_bins=128
++ model_size=tiny
++ task=pretrain_joint
++ fshape=128
++ tshape=2
++ fstride=128
++ tstride=2
++ mask_patch=400
++ batch_size=64
++ lr=5e-4
++ epoch=5
++ lr_patience=2
++ freqm=0
++ timem=0
++ mixup=0
++ bal=none
++ num_workers=8
++ TAG=E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ exp_dir=/home/s2211921/SSAST/runs/pretrain/exp/E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ mkdir -p /home/s2211921/SSAST/runs/pretrain/exp/E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ CUDA_CACHE_DISABLE=1
++ python -W ignore /home/s2211921/SSAST/src/run.py --dataset librispeech360 --data-train /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr360_cut.json --data-val /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json --exp-dir /home/s2211921/SSAST/runs/pretrain/exp/E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4 --label-csv /home/s2211921/SSAST/src/pretrain/data/class_labels_indices.csv --lr 5e-4 --n-epochs 5 --batch-size 64 --save_model True --freqm 0 --timem 0 --mixup 0 --bal none --fshape 128 --tshape 2 --fstride 128 --tstride 2 --dataset_mean -4.2677393 --dataset_std 4.5689974 --target_length 1024 --num_mel_bins 128 --model_size tiny --mask_patch 400 --n-print-steps 100 --task pretrain_joint --lr_patience 2 --epoch_iter 800 --noise False --num-workers 8
+I am process 3472945, running on saxa.inf.ed.ac.uk: starting (Tue Mar  3 05:43:34 2026)
+balanced sampler is not used
+---------------the train dataloader---------------
+now using following mask: 0 freq, 0 time
+now using mix-up with rate 0.000000
+now process librispeech360
+use dataset mean -4.268 and std 4.569 to normalize the input.
+number of classes is 527
+---------------the evaluation dataloader---------------
+now using following mask: 0 freq, 0 time
+now using mix-up with rate 0.000000
+now process librispeech360
+use dataset mean -4.268 and std 4.569 to normalize the input.
+number of classes is 527
+Now train with librispeech360 with 104014 training samples, evaluate with 10275 samples
+The num_mel_bins 128 and fshape 128 are same, masking a typical time frame, not using cluster masking.
+pretraining patch split stride: frequency=128, time=2
+pretraining patch shape: frequency=128, time=2
+pretraining patch array dimension: frequency=1, time=512
+pretraining number of patches=512
+
+Creating experiment directory: /home/s2211921/SSAST/runs/pretrain/exp/E1_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
+Now starting self-supervised pretraining for 5 epochs
+Now running on : cuda
+Total parameter number is : 6.145106000 million
+Total trainable parameter number is : 6.145104000 million
+current #steps=0, #epochs=1
+start training...
+2026-03-03 05:43:36.610190
+warm-up learning rate is 0.000000
+Traceback (most recent call last):
+  File "/home/s2211921/SSAST/src/run.py", line 164, in <module>
+    trainmask(audio_model, train_loader, val_loader, args)
+  File "/home/s2211921/SSAST/src/traintest_mask.py", line 189, in trainmask
+    acc, loss1 = audio_model(audio_input, 'pretrain_mpc', mask_patch=args.mask_patch, cluster=cluster)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/parallel/data_parallel.py", line 196, in forward
+    replicas = self.replicate(self.module, self.device_ids[: len(inputs)])
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/parallel/data_parallel.py", line 201, in replicate
+    return replicate(module, device_ids, not torch.is_grad_enabled())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/parallel/replicate.py", line 125, in replicate
+    param_copies = _broadcast_coalesced_reshape(params, devices, detach)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/parallel/replicate.py", line 95, in _broadcast_coalesced_reshape
+    tensor_copies = Broadcast.apply(devices, *tensors)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/autograd/function.py", line 583, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/parallel/_functions.py", line 22, in forward
+    outputs = comm.broadcast_coalesced(inputs, ctx.target_gpus)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/s2211921/SSAST/venvssast/lib/python3.12/site-packages/torch/nn/parallel/comm.py", line 67, in broadcast_coalesced
+    return torch._C._broadcast_coalesced(tensors, devices, buffer_size)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: NCCL Error 5: invalid usage (run with NCCL_DEBUG=WARN for details)

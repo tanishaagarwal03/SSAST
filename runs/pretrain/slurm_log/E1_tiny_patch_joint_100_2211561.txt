@@ -1,0 +1,149 @@
++ . /home/htang2/toolchain-20251006/toolchain.rc
+++ ROOT=/home/htang2/toolchain-20251006
+++ export PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ export LD_LIBRARY_PATH=/home/htang2/toolchain-20251006/lib:/home/htang2/toolchain-20251006/lib64:/home/htang2/toolchain-20251006/opt/cuda/lib:/home/htang2/toolchain-20251006/opt/cuda/lib64:/home/htang2/toolchain-20251006/opt/cuda/extras/CUPTI/lib64:
+++ LD_LIBRARY_PATH=/home/htang2/toolchain-20251006/lib:/home/htang2/toolchain-20251006/lib64:/home/htang2/toolchain-20251006/opt/cuda/lib:/home/htang2/toolchain-20251006/opt/cuda/lib64:/home/htang2/toolchain-20251006/opt/cuda/extras/CUPTI/lib64:
++ source /home/s2211921/SSAST/venvssast/bin/activate
+++ deactivate nondestructive
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
+++ '[' -n '' ']'
+++ unset VIRTUAL_ENV
+++ unset VIRTUAL_ENV_PROMPT
+++ '[' '!' nondestructive = nondestructive ']'
+++ '[' linux-gnu = cygwin ']'
+++ '[' linux-gnu = msys ']'
+++ export VIRTUAL_ENV=/home/s2211921/SSAST/venvssast
+++ VIRTUAL_ENV=/home/s2211921/SSAST/venvssast
+++ _OLD_VIRTUAL_PATH=/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ PATH=/home/s2211921/SSAST/venvssast/bin:/home/htang2/toolchain-20251006/bin:/home/htang2/toolchain-20251006/opt/cuda/bin:/home/s2211921/SSAST/venvssast/bin:/usr/games:/usr/local/games:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+++ export PATH
+++ '[' -n '' ']'
+++ '[' -z '' ']'
+++ _OLD_VIRTUAL_PS1=
+++ PS1='(venvssast) '
+++ export PS1
+++ VIRTUAL_ENV_PROMPT='(venvssast) '
+++ export VIRTUAL_ENV_PROMPT
+++ hash -r
++ HOME=/home/s2211921
++ REPO=/home/s2211921/SSAST
++ EXP_ROOT=/home/s2211921/SSAST/runs/pretrain/exp
++ mkdir -p /home/s2211921/SSAST/runs/pretrain/exp /home/s2211921/SSAST/runs/pretrain/slurm_log
++ SCRATCH=/home/s2211921/../../disk/scratch/s2211921
++ LIBRI_PARENT=/home/s2211921/../../disk/scratch/s2211921/librispeech
++ LIBRI_ROOT=/home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech
++ mkdir -p /home/s2211921/../../disk/scratch/s2211921/librispeech
++ TAR100=/home/s2211921/train-clean-100.tar
++ '[' '!' -d /home/s2211921/../../disk/scratch/s2211921/librispeech/LibriSpeech/train-clean-100 ']'
++ json_train=/home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut.json
++ json_val=/home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json
++ '[' '!' -f /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut.json ']'
++ '[' '!' -f /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json ']'
++ echo 'JSON file already exists at . Skipping preparation.'
+JSON file already exists at . Skipping preparation.
++ dataset=librispeech360
++ dataset_mean=-4.2677393
++ dataset_std=4.5689974
++ target_length=1024
++ num_mel_bins=128
++ model_size=tiny
++ task=pretrain_joint
++ fshape=128
++ tshape=2
++ fstride=128
++ tstride=2
++ mask_patch=400
++ batch_size=64
++ lr=5e-4
++ epoch=5
++ lr_patience=2
++ freqm=0
++ timem=0
++ mixup=0
++ bal=none
++ num_workers=8
++ TAG=E1_100_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ exp_dir=/home/s2211921/SSAST/runs/pretrain/exp/E1_100_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ mkdir -p /home/s2211921/SSAST/runs/pretrain/exp/E1_100_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
++ CUDA_CACHE_DISABLE=1
++ python -W ignore /home/s2211921/SSAST/src/run.py --dataset librispeech360 --data-train /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut.json --data-val /home/s2211921/../../disk/scratch/s2211921/librispeech/librispeech_tr100_cut_test.json --exp-dir /home/s2211921/SSAST/runs/pretrain/exp/E1_100_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4 --label-csv /home/s2211921/SSAST/src/pretrain/data/class_labels_indices.csv --lr 5e-4 --n-epochs 5 --batch-size 64 --save_model True --freqm 0 --timem 0 --mixup 0 --bal none --fshape 128 --tshape 2 --fstride 128 --tstride 2 --dataset_mean -4.2677393 --dataset_std 4.5689974 --target_length 1024 --num_mel_bins 128 --model_size tiny --mask_patch 400 --n-print-steps 100 --task pretrain_joint --lr_patience 2 --epoch_iter 800 --noise False --num-workers 8
+I am process 551047, running on landonia01.inf.ed.ac.uk: starting (Mon Mar  2 20:17:23 2026)
+balanced sampler is not used
+---------------the train dataloader---------------
+now using following mask: 0 freq, 0 time
+now using mix-up with rate 0.000000
+now process librispeech360
+use dataset mean -4.268 and std 4.569 to normalize the input.
+number of classes is 527
+---------------the evaluation dataloader---------------
+now using following mask: 0 freq, 0 time
+now using mix-up with rate 0.000000
+now process librispeech360
+use dataset mean -4.268 and std 4.569 to normalize the input.
+number of classes is 527
+Now train with librispeech360 with 20000 training samples, evaluate with 10275 samples
+The num_mel_bins 128 and fshape 128 are same, masking a typical time frame, not using cluster masking.
+pretraining patch split stride: frequency=128, time=2
+pretraining patch shape: frequency=128, time=2
+pretraining patch array dimension: frequency=1, time=512
+pretraining number of patches=512
+
+Creating experiment directory: /home/s2211921/SSAST/runs/pretrain/exp/E1_100_librispeech360_pretrain_joint_tiny_F128_T2_mask400_e5_lr5e-4
+Now starting self-supervised pretraining for 5 epochs
+Now running on : cuda
+Total parameter number is : 6.145106000 million
+Total trainable parameter number is : 6.145104000 million
+current #steps=0, #epochs=1
+start training...
+2026-03-02 20:17:26.129326
+warm-up learning rate is 0.000000
+warm-up learning rate is 0.000025
+warm-up learning rate is 0.000050
+Epoch: [1][100/312]	Per Sample Total Time 0.01087	Per Sample Data Time 0.00129	Per Sample DNN Time 0.00959	Train Loss 8.5710	
+warm-up learning rate is 0.000075
+warm-up learning rate is 0.000100
+Epoch: [1][200/312]	Per Sample Total Time 0.01001	Per Sample Data Time 0.00090	Per Sample DNN Time 0.00911	Train Loss 7.8610	
+warm-up learning rate is 0.000125
+warm-up learning rate is 0.000150
+Epoch: [1][300/312]	Per Sample Total Time 0.00976	Per Sample Data Time 0.00079	Per Sample DNN Time 0.00897	Train Loss 7.4927	
+2026-03-02 20:20:41.144799
+warm-up learning rate is 0.000175
+warm-up learning rate is 0.000200
+Epoch: [2][88/312]	Per Sample Total Time 0.00980	Per Sample Data Time 0.00087	Per Sample DNN Time 0.00894	Train Loss 7.3338	
+warm-up learning rate is 0.000225
+warm-up learning rate is 0.000250
+Epoch: [2][188/312]	Per Sample Total Time 0.00970	Per Sample Data Time 0.00080	Per Sample DNN Time 0.00890	Train Loss 7.3643	
+warm-up learning rate is 0.000275
+warm-up learning rate is 0.000300
+Epoch: [2][288/312]	Per Sample Total Time 0.00963	Per Sample Data Time 0.00076	Per Sample DNN Time 0.00887	Train Loss 7.3500	
+2026-03-02 20:23:50.869258
+warm-up learning rate is 0.000325
+warm-up learning rate is 0.000350
+Epoch: [3][76/312]	Per Sample Total Time 0.00969	Per Sample Data Time 0.00081	Per Sample DNN Time 0.00888	Train Loss 7.3487	
+warm-up learning rate is 0.000375
+---------------- step 800 evaluation ----------------
+masked acc train: 0.003555
+nce loss train: 7.294137
+masked acc eval: nan
+nce loss eval: nan
+# 2, step 0-800, lr: 3.750000e-04
+# 2, step 0-800, training time: 170.226
+---------------- evaluation finished ----------------
+warm-up learning rate is 0.000400
+Epoch: [3][176/312]	Per Sample Total Time 0.96954	Per Sample Data Time 0.95991	Per Sample DNN Time 0.00963	Train Loss 7.3430	
+warm-up learning rate is 0.000425
+warm-up learning rate is 0.000450
+Epoch: [3][276/312]	Per Sample Total Time 0.01878	Per Sample Data Time 0.01007	Per Sample DNN Time 0.00870	Train Loss 7.2075	
+2026-03-02 20:28:02.517426
+warm-up learning rate is 0.000475
+warm-up learning rate is 0.000500
+Epoch: [4][64/312]	Per Sample Total Time 0.01463	Per Sample Data Time 0.00583	Per Sample DNN Time 0.00880	Train Loss 7.1478	
+Epoch: [4][164/312]	Per Sample Total Time 0.01285	Per Sample Data Time 0.00408	Per Sample DNN Time 0.00877	Train Loss 7.2618	
+Epoch: [4][264/312]	Per Sample Total Time 0.01198	Per Sample Data Time 0.00320	Per Sample DNN Time 0.00878	Train Loss 7.3853	
+2026-03-02 20:31:16.656615
+Epoch: [5][52/312]	Per Sample Total Time 0.01167	Per Sample Data Time 0.00283	Per Sample DNN Time 0.00884	Train Loss 7.3274	
+Epoch: [5][152/312]	Per Sample Total Time 0.01129	Per Sample Data Time 0.00245	Per Sample DNN Time 0.00884	Train Loss 7.3230	
+Epoch: [5][252/312]	Per Sample Total Time 0.01102	Per Sample Data Time 0.00218	Per Sample DNN Time 0.00884	Train Loss 7.4105	

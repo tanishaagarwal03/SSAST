@@ -2,7 +2,7 @@
 #SBATCH --job-name=E1_tiny_patch_joint
 #SBATCH --partition=Teaching
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G
 #SBATCH --time=2-00:00:00
@@ -13,33 +13,41 @@ set -x
 . /home/htang2/toolchain-20251006/toolchain.rc
 source /home/s2211921/SSAST/venvssast/bin/activate
 
+HOME=/home/s2211921
+
 REPO=/home/s2211921/SSAST
 EXP_ROOT=$REPO/runs/pretrain/exp
 mkdir -p "$EXP_ROOT" "$REPO/runs/pretrain/slurm_log"
 
 # ---- node-local scratch librispeech ----
-SCRATCH=/disk/scratch/s2211921
+SCRATCH=~/../../disk/scratch/s2211921
 LIBRI_PARENT=$SCRATCH/librispeech
 LIBRI_ROOT=$LIBRI_PARENT/LibriSpeech
-mkdir -p "$LIBRI_PARENT"
+mkdir -p "$LIBRI_ROOT"
 
 # tarballs in $HOME
-TAR360=$HOME/libri-360.tar
+TAR360=$HOME/train-clean-360.tar
 TAR100=$HOME/train-clean-100.tar
 
 # extract if missing
 if [ ! -d "$LIBRI_ROOT/train-clean-360" ]; then
+  echo "LibriSpeech directory not found. Extracting archive..."
   tar -xf "$TAR360" -C "$LIBRI_PARENT"
 fi
 if [ ! -d "$LIBRI_ROOT/train-clean-100" ]; then
+  echo "LibriSpeech directory not found. Extracting archive..."
   tar -xf "$TAR100" -C "$LIBRI_PARENT"
 fi
 
 # JSONs written by your prep script to fixed paths
 json_train="$SCRATCH/librispeech/librispeech_tr360_cut.json"
 json_val="$SCRATCH/librispeech/librispeech_tr100_cut_test.json"
+
 if [ ! -f "$json_train" ] || [ ! -f "$json_val" ]; then
-  python "$REPO/src/prep_data/librispeech/prep_librispeech.py"
+    echo "JSON file not found. Running prep_librispeech.py..."
+    python ~/SSAST/src/prep_data/librispeech/prep_librispeech.py
+else
+    echo "JSON file already exists at $json_train and $json_val. Skipping preparation."
 fi
 
 dataset=librispeech360
